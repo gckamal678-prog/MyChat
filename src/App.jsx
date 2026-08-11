@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Analytics } from '@vercel/analytics/react';
 import Navigation from './components/Navigation';
 import InstallPrompt from './components/InstallPrompt';
 import ChatList from './components/ChatList';
@@ -17,22 +18,25 @@ export default function App() {
   const [showStorage, setShowStorage] = useState(false);
 
   return (
-    <div className="min-h-screen pb-20 md:pb-0 md:pl-64 flex flex-col justify-center items-center p-4">
-      <Navigation activeTab={activeTab} setActiveTab={(tab) => { setActiveTab(tab); setSelectedChat(null); setShowStorage(false); }} />
-      <InstallPrompt />
+    <>
+      <div className="min-h-screen pb-20 md:pb-0 md:pl-64 flex flex-col justify-center items-center p-4">
+        <Navigation activeTab={activeTab} setActiveTab={(tab) => { setActiveTab(tab); setSelectedChat(null); setShowStorage(false); }} />
+        <InstallPrompt />
 
-      {activeCallMode && <ActiveCallModal mode={activeCallMode} onClose={() => setActiveCallMode(null)} />}
+        {activeCallMode && <ActiveCallModal mode={activeCallMode} onClose={() => setActiveCallMode(null)} />}
 
-      <div className="w-full max-w-xl flex justify-center">
-        {activeTab === 'chats' && !selectedChat && <ChatList onSelectChat={(chat) => setSelectedChat(chat)} />}
-        {activeTab === 'chats' && selectedChat && <ChatWindow chat={selectedChat} onBack={() => setSelectedChat(null)} />}
-        {activeTab === 'communities' && <CommunitiesScreen />}
-        {activeTab === 'reels' && <ReelsScreen />}
-        {activeTab === 'calls' && <CallsScreen onStartCall={(mode) => setActiveCallMode(mode)} />}
-        {activeTab === 'settings' && (
-          showStorage ? <StorageScreen /> : <SettingsScreen onOpenStorage={() => setShowStorage(true)} />
-        )}
+        <div className="w-full max-w-xl flex justify-center">
+          {activeTab === 'chats' && !selectedChat && <ChatList onSelectChat={(chat) => setSelectedChat(chat)} />}
+          {activeTab === 'chats' && selectedChat && <ChatWindow chat={selectedChat} onBack={() => setSelectedChat(null)} />}
+          {activeTab === 'communities' && <CommunitiesScreen />}
+          {activeTab === 'reels' && <ReelsScreen />}
+          {activeTab === 'calls' && <CallsScreen onStartCall={(mode) => setActiveCallMode(mode)} />}
+          {activeTab === 'settings' && (
+            showStorage ? <StorageScreen /> : <SettingsScreen onOpenStorage={() => setShowStorage(true)} />
+          )}
+        </div>
       </div>
-    </div>
+      <Analytics />
+    </>
   );
 }
