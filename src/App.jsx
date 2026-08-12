@@ -1,38 +1,36 @@
 import React, { useState } from 'react';
+import AuthScreen from './components/Login';
 import Navigation from './components/Navigation';
 import InstallPrompt from './components/InstallPrompt';
-import ChatList from './components/ChatList';
-import ChatWindow from './components/ChatWindow';
-import CommunitiesScreen from './components/CommunitiesScreen';
-import CallsScreen from './components/CallsScreen';
-import ActiveCallModal from './components/ActiveCallModal';
-import ReelsScreen from './components/ReelsScreen';
-import SettingsScreen from './components/SettingsScreen';
-import StorageScreen from './components/StorageScreen';
+import { MessageSquare, Users, Video, PhoneCall, Settings } from 'lucide-react';
 
 export default function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeTab, setActiveTab] = useState('chats');
-  const [selectedChat, setSelectedChat] = useState(null);
-  const [activeCallMode, setActiveCallMode] = useState(null);
-  const [showStorage, setShowStorage] = useState(false);
+
+  if (!isAuthenticated) {
+    return <AuthScreen onLoginSuccess={() => setIsAuthenticated(true)} />;
+  }
 
   return (
-    <div className="min-h-screen pb-20 md:pb-0 md:pl-64 flex flex-col justify-center items-center p-4">
-      <Navigation activeTab={activeTab} setActiveTab={(tab) => { setActiveTab(tab); setSelectedChat(null); setShowStorage(false); }} />
+    <div className="min-h-screen bg-slate-950 text-white flex">
+      <Navigation activeTab={activeTab} setActiveTab={setActiveTab} />
+      
+      {/* Main Content Area */}
+      <main className="flex-1 md:ml-64 pb-20 md:pb-0 p-6">
+        <div className="max-w-4xl mx-auto">
+          <header className="flex justify-between items-center mb-6 pb-4 border-b border-slate-800">
+            <h1 className="text-xl font-bold capitalize">{activeTab}</h1>
+            <span className="text-xs bg-indigo-600/20 text-indigo-400 px-3 py-1 rounded-full border border-indigo-500/30">Online PWA</span>
+          </header>
+
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 text-center min-h-[400px] flex flex-col items-center justify-center shadow-xl">
+            <p className="text-slate-400 text-sm">Clean slate design ready for upcoming **{activeTab}** module.</p>
+          </div>
+        </div>
+      </main>
+
       <InstallPrompt />
-
-      {activeCallMode && <ActiveCallModal mode={activeCallMode} onClose={() => setActiveCallMode(null)} />}
-
-      <div className="w-full max-w-xl flex justify-center">
-        {activeTab === 'chats' && !selectedChat && <ChatList onSelectChat={(chat) => setSelectedChat(chat)} />}
-        {activeTab === 'chats' && selectedChat && <ChatWindow chat={selectedChat} onBack={() => setSelectedChat(null)} />}
-        {activeTab === 'communities' && <CommunitiesScreen />}
-        {activeTab === 'reels' && <ReelsScreen />}
-        {activeTab === 'calls' && <CallsScreen onStartCall={(mode) => setActiveCallMode(mode)} />}
-        {activeTab === 'settings' && (
-          showStorage ? <StorageScreen /> : <SettingsScreen onOpenStorage={() => setShowStorage(true)} />
-        )}
-      </div>
     </div>
   );
 }
