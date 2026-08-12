@@ -1,53 +1,58 @@
 import React from 'react';
-import { MessageSquare, Users, Video, Phone, Settings } from 'lucide-react';
+import { MessageSquare, Users, Video, PhoneCall, Settings } from 'lucide-react';
 
 export default function Navigation({ activeTab, setActiveTab }) {
-  const navItems = [
+  const tabs = [
     { id: 'chats', label: 'Chats', icon: MessageSquare },
     { id: 'communities', label: 'Communities', icon: Users },
     { id: 'reels', label: 'Reels', icon: Video },
-    { id: 'calls', label: 'Calls', icon: Phone },
+    { id: 'calls', label: 'Calls', icon: PhoneCall },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
   return (
     <>
-      <aside className="hidden md:flex flex-col w-64 bg-slate-950 border-r border-slate-800 p-4 h-screen fixed left-0 top-0 z-40">
-        <h1 className="text-xl font-bold text-indigo-400 mb-8 px-2">MyChat PWA</h1>
-        <nav className="space-y-2">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeTab === item.id;
+      {/* Desktop Sidebar */}
+      <aside className="hidden md:flex flex-col w-64 bg-slate-900 border-r border-slate-800 p-4 fixed h-full z-40">
+        <div className="flex items-center space-x-3 px-3 py-4 mb-6">
+          <div className="bg-indigo-600 p-2 rounded-xl text-white font-bold">MC</div>
+          <span className="text-lg font-bold text-white tracking-wider">MyChat PWA</span>
+        </div>
+        <nav className="space-y-1">
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
             return (
               <button
-                key={item.id}
-                onClick={() => setActiveTab(item.id)}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
-                  isActive ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-900 hover:text-white'
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition ${
+                  isActive ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
                 }`}
               >
-                <Icon size={20} />
-                {item.label}
+                <Icon className="w-5 h-5" />
+                <span>{tab.label}</span>
               </button>
             );
           })}
         </nav>
       </aside>
 
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 flex justify-around p-2 z-40">
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = activeTab === item.id;
+      {/* Mobile Bottom Navigation */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-800 flex justify-around p-3 z-40">
+        {tabs.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
           return (
             <button
-              key={item.id}
-              onClick={() => setActiveTab(item.id)}
-              className={`flex flex-col items-center p-2 rounded-lg text-xs ${
-                isActive ? 'text-indigo-400' : 'text-slate-400'
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex flex-col items-center space-y-1 p-2 rounded-xl transition ${
+                isActive ? 'text-indigo-400' : 'text-slate-400 hover:text-white'
               }`}
             >
-              <Icon size={20} />
-              <span>{item.label}</span>
+              <Icon className="w-5 h-5" />
+              <span className="text-[10px]">{tab.label}</span>
             </button>
           );
         })}
