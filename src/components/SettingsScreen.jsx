@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
-import { User, Shield, Key, Smartphone, Lock, ChevronRight } from 'lucide-react';
+import { User, Shield, Key, Smartphone, Lock, ChevronRight, Moon, Sun, FileText, X } from 'lucide-react';
 
-export default function SettingsScreen() {
+export default function SettingsScreen({ darkMode, setDarkMode }) {
   const [showKeys, setShowKeys] = useState(false);
   const [biometricEnabled, setBiometricEnabled] = useState(true);
+  const [showPolicy, setShowPolicy] = useState(false);
 
   return (
     <div className="p-6 max-w-2xl mx-auto text-white space-y-6">
       <h1 className="text-2xl font-bold">Settings & Security</h1>
+      <button onClick={() => setDarkMode(!darkMode)} className="w-full p-4 bg-slate-900 border border-slate-800 rounded-2xl flex items-center justify-between"><span className="flex items-center gap-3"><span className="p-2 bg-indigo-600/20 rounded-xl">{darkMode ? <Moon className="w-5 h-5 text-indigo-400" /> : <Sun className="w-5 h-5 text-amber-400" />}</span><span className="text-sm font-semibold">{darkMode ? 'Dark mode' : 'Light mode'}</span></span><span className="text-xs text-slate-400">Tap to change</span></button>
 
       {/* User Profile Section */}
       <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl flex items-center space-x-4">
@@ -74,7 +76,9 @@ export default function SettingsScreen() {
           </div>
           <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2.5 py-1 rounded-full border border-emerald-500/30">1 Active</span>
         </div>
+        <button onClick={() => setShowPolicy(true)} className="w-full p-4 flex items-center gap-3 text-left hover:bg-slate-800/50"><FileText className="w-5 h-5 text-indigo-400" /><span className="text-sm font-semibold">Privacy Policy</span></button>
       </div>
+      {showPolicy && <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"><div className="max-w-md bg-slate-900 border border-slate-700 rounded-2xl p-5 space-y-3"><div className="flex justify-between"><h2 className="font-bold">Privacy Policy</h2><button onClick={() => setShowPolicy(false)}><X /></button></div><p className="text-sm text-slate-300">MyChat stores demo messages and settings in this browser session. Camera and microphone are used only after you start a call. No media is uploaded by this demo.</p></div></div>}
     </div>
   );
 }

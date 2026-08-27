@@ -5,6 +5,27 @@ export default function CallsScreen() {
   const [activeCall, setActiveCall] = useState(null); // 'audio' or 'video'
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
+  const [cameraStream, setCameraStream] = useState(null);
+  const [cameraError, setCameraError] = useState('');
+
+  const startCall = async (mode) => {
+    setCameraError('');
+    if (mode === 'video') {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        setCameraStream(stream);
+      } catch {
+        setCameraError('Camera permission was denied or unavailable.');
+      }
+    }
+    setActiveCall(mode);
+  };
+
+  const endCall = () => {
+    cameraStream?.getTracks().forEach((track) => track.stop());
+    setCameraStream(null);
+    setActiveCall(null);
+  };
 
   const callLogs = [
     { id: 1, name: 'Kamal GC', type: 'incoming', mode: 'video', time: 'Today, 09:15 AM', duration: '4 min 12 sec' },
@@ -18,13 +39,13 @@ export default function CallsScreen() {
         <h1 className="text-2xl font-bold">Calls</h1>
         <div className="flex space-x-2">
           <button 
-            onClick={() => setActiveCall('audio')}
+            onClick={() => startCall('audio')}
             className="p-2.5 bg-indigo-600 hover:bg-indigo-500 rounded-xl transition shadow-lg shadow-indigo-600/30"
           >
             <Phone className="w-4 h-4" />
           </button>
           <button 
-            onClick={() => setActiveCall('video')}
+            onClick={() => startCall('video')}
             className="p-2.5 bg-indigo-600 hover:bg-indigo-500 rounded-xl transition shadow-lg shadow-indigo-600/30"
           >
             <Video className="w-4 h-4" />
@@ -51,7 +72,7 @@ export default function CallsScreen() {
               </div>
             </div>
             <button 
-              onClick={() => setActiveCall(log.mode)}
+              onClick={() => startCall(log.mode)}
               className="p-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl transition text-indigo-400"
             >
               {log.mode === 'video' ? <Video className="w-5 h-5" /> : <Phone className="w-5 h-5" />}
@@ -72,7 +93,7 @@ export default function CallsScreen() {
           <div className="relative w-full max-w-md h-96 bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden flex items-center justify-center shadow-2xl">
             {activeCall === 'video' && !isVideoOff ? (
               <div className="absolute inset-0 bg-gradient-to-tr from-slate-900 to-indigo-950 flex items-center justify-center">
-                <p className="text-xs text-slate-400">Remote Video Feed (Simulated)</p>
+                {cameraStream ? <video autoPlay muted playsInline ref={(element) => { if (element) element.srcObject = cameraStream; }} className="absolute inset-0 w-full h-full object-cover" /> : <p className="text-xs text-slate-400">Camera preview unavailable</p>}
                 {/* Local PiP Video */}
                 <div className="absolute bottom-4 right-4 w-28 h-36 bg-slate-800 border border-slate-700 rounded-2xl flex items-center justify-center text-[10px] text-slate-400">
                   Your Camera
@@ -110,7 +131,7 @@ export default function CallsScreen() {
             </button>
 
             <button 
-              onClick={() => setActiveCall(null)}
+              onClick={endCall}
               className="p-4 bg-red-600 hover:bg-red-500 rounded-2xl text-white transition shadow-lg shadow-red-600/30"
             >
               <PhoneOff className="w-6 h-6" />

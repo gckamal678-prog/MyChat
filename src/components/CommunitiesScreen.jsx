@@ -15,6 +15,7 @@ export default function Communities() {
     }
   ]);
   const [newPostText, setNewPostText] = useState('');
+  const [commentText, setCommentText] = useState({});
 
   const handleCreatePost = (e) => {
     e.preventDefault();
@@ -33,6 +34,14 @@ export default function Communities() {
       ...posts
     ]);
     setNewPostText('');
+  };
+
+  const updatePost = (id, change) => setPosts((current) => current.map((post) => post.id === id ? { ...post, ...change } : post));
+
+  const handleComment = (id) => {
+    if (!commentText[id]?.trim()) return;
+    updatePost(id, { comments: posts.find((post) => post.id === id).comments + 1 });
+    setCommentText((current) => ({ ...current, [id]: '' }));
   };
 
   return (
@@ -83,11 +92,11 @@ export default function Communities() {
             <p className="text-sm text-slate-200">{post.content}</p>
 
             <div className="flex items-center space-x-6 pt-2 border-t border-slate-800/60 text-slate-400 text-xs">
-              <button className="flex items-center space-x-1.5 hover:text-indigo-400 transition">
+              <button onClick={() => updatePost(post.id, { likes: post.likes + 1 })} className="flex items-center space-x-1.5 hover:text-indigo-400 transition">
                 <Heart className="w-4 h-4" />
                 <span>{post.likes}</span>
               </button>
-              <button className="flex items-center space-x-1.5 hover:text-indigo-400 transition">
+              <button onClick={() => document.getElementById(`comment-${post.id}`)?.focus()} className="flex items-center space-x-1.5 hover:text-indigo-400 transition">
                 <MessageCircle className="w-4 h-4" />
                 <span>{post.comments}</span>
               </button>
@@ -95,6 +104,7 @@ export default function Communities() {
                 <Share2 className="w-4 h-4" />
               </button>
             </div>
+            <div className="flex gap-2"><input id={`comment-${post.id}`} value={commentText[post.id] || ''} onChange={(event) => setCommentText((current) => ({ ...current, [post.id]: event.target.value }))} placeholder="Write a comment" className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs" /><button onClick={() => handleComment(post.id)} className="bg-indigo-600 rounded-xl px-3 text-xs">Send</button></div>
           </div>
         ))}
       </div>

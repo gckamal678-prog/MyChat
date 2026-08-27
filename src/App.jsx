@@ -1,28 +1,62 @@
-import React, { useState, Suspense, lazy } from 'react';
-import AuthScreen from './components/Login';
+import React, { useEffect, useState, Suspense, lazy } from 'react';
+import AuthScreen from './components/Signup';
 import Navigation from './components/Navigation';
 import InstallPrompt from './components/InstallPrompt';
+import ChatWindow from './components/ChatWindow';
+import BiometricScreen from './components/BiometricScreen';
+import { ShieldCheck } from 'lucide-react';
 
 // Lazy loading for performance optimization
 const ChatList = lazy(() => import('./components/ChatList'));
-const Communities = lazy(() => import('./components/Communities'));
-const CallsScreen = lazy(() => import('./components/Calls'));
-const Reels = lazy(() => import('./components/Reels'));
-const SettingsScreen = lazy(() => import('./components/Settings'));
+const Communities = lazy(() => import('./components/CommunitiesScreen'));
+const CallsScreen = lazy(() => import('./components/CallsScreen'));
+const Reels = lazy(() => import('./components/ReelsScreen'));
+const SettingsScreen = lazy(() => import('./components/SettingsScreen'));
 
 export default function App() {
+  const [showWelcome, setShowWelcome] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isBiometricVerified, setIsBiometricVerified] = useState(false);
   const [activeTab, setActiveTab] = useState('chats');
+  const [selectedChat, setSelectedChat] = useState(null);
+  const [darkMode, setDarkMode] = useState(true);
+
+  useEffect(() => {
+    const welcomeTimer = window.setTimeout(() => setShowWelcome(false), 1500);
+    return () => window.clearTimeout(welcomeTimer);
+  }, []);
+
+  if (showWelcome) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">
+        <div className="text-center animate-pulse">
+          <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-indigo-600 shadow-xl shadow-indigo-600/30">
+            <ShieldCheck className="h-11 w-11" />
+          </div>
+          <h1 className="text-3xl font-bold tracking-tight">MyChat</h1>
+          <p className="mt-2 text-sm text-slate-400">Private conversations, beautifully simple</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return <AuthScreen onLoginSuccess={() => setIsAuthenticated(true)} />;
+  }
+
+  if (!isBiometricVerified) {
+    return <BiometricScreen onSuccess={() => setIsBiometricVerified(true)} />;
   }
 
   // Render active tab content dynamically
   const renderContent = () => {
     switch (activeTab) {
       case 'chats':
-        return <ChatList />;
+        return selectedChat ? (
+          <ChatWindow chat={selectedChat} onBack={() => setSelectedChat(null)} />
+        ) : (
+          <ChatList onSelectChat={setSelectedChat} darkMode={darkMode} setDarkMode={setDarkMode} />
+        );
       case 'communities':
         return <Communities />;
       case 'calls':
@@ -30,14 +64,14 @@ export default function App() {
       case 'reels':
         return <Reels />;
       case 'settings':
-        return <SettingsScreen />;
+        return <SettingsScreen darkMode={darkMode} setDarkMode={setDarkMode} />;
       default:
         return <ChatList />;
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white flex">
+    <div className={`min-h-screen ${darkMode ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-900'} flex`}>
       <Navigation activeTab={activeTab} setActiveTab={setActiveTab} />
       
       {/* Main Content Area */}

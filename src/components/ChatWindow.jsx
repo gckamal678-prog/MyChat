@@ -13,8 +13,19 @@ export default function ChatWindow({ chat, onBack }) {
 
   const handleSend = () => {
     if (!inputText.trim()) return;
-    setMessages([...messages, { id: Date.now(), sender: 'me', text: inputText, time: 'Just now', type: 'text' }]);
+    setMessages((current) => [...current, { id: Date.now(), sender: 'me', text: inputText.trim(), time: 'Just now', type: 'text' }]);
     setInputText('');
+  };
+
+  const handleAttachment = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*,video/*,application/pdf';
+    input.onchange = () => {
+      const file = input.files?.[0];
+      if (file) setMessages((current) => [...current, { id: Date.now(), sender: 'me', text: `Attached: ${file.name}`, time: 'Just now', type: 'text' }]);
+    };
+    input.click();
   };
 
   return (
@@ -77,7 +88,7 @@ export default function ChatWindow({ chat, onBack }) {
 
       {/* Input Area */}
       <div className="p-3 bg-slate-900 border-t border-slate-800 flex items-center space-x-2">
-        <button className="p-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl transition text-slate-400">
+          <button type="button" onClick={handleAttachment} aria-label="Attach file" className="p-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl transition text-slate-400">
           <Paperclip className="w-5 h-5" />
         </button>
         <div className="relative flex-1">
@@ -89,7 +100,11 @@ export default function ChatWindow({ chat, onBack }) {
             placeholder="Type a secure message..."
             className="w-full bg-slate-950 border border-slate-800 px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-indigo-500 text-white"
           />
+          {showEmoji && <div className="absolute bottom-14 left-0 bg-slate-800 border border-slate-700 rounded-xl p-2 text-lg">😀 😂 ❤️ 👍 🎉</div>}
         </div>
+        <button type="button" onClick={() => setShowEmoji(!showEmoji)} aria-label="Add emoji" className="p-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl transition text-slate-400">
+          <Smile className="w-5 h-5" />
+        </button>
         <button 
           onClick={handleSend}
           className="p-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition shadow-lg shadow-indigo-600/30"
