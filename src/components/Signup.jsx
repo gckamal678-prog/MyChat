@@ -11,7 +11,7 @@ export default function AuthScreen() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const { signIn, signUp, isConfigured } = useAuth();
+  const { signIn, signUp, isConfigured, configError } = useAuth();
 
   // Password Strength Checker
   const getPasswordStrength = (pass) => {
@@ -28,7 +28,7 @@ export default function AuthScreen() {
     setError('');
     setNotice('');
     if (!isConfigured) {
-      setError('Supabase is not configured. Add the VITE_SUPABASE values first.');
+      setError(configError || 'Supabase is not configured. Check the VITE_SUPABASE values.');
       return;
     }
 

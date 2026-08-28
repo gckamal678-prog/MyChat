@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { isSupabaseConfigured, supabase } from '../services/supabase';
+import { isSupabaseConfigured, supabase, supabaseConfigError } from '../services/supabase';
 
 const AuthContext = createContext(null);
 
@@ -32,16 +32,16 @@ export function AuthProvider({ children }) {
 		};
 	}, []);
 
-	const signIn = (email, password) => supabase.auth.signInWithPassword({ email, password });
-	const signUp = (email, password, metadata) => supabase.auth.signUp({
+	const signIn = (email, password) => supabase?.auth.signInWithPassword({ email, password });
+	const signUp = (email, password, metadata) => supabase?.auth.signUp({
 		email,
 		password,
 		options: { data: metadata },
 	});
-	const signOut = () => supabase.auth.signOut();
+	const signOut = () => supabase?.auth.signOut();
 
 	return (
-		<AuthContext.Provider value={{ session, user: session?.user ?? null, loading, signIn, signUp, signOut, isConfigured: isSupabaseConfigured }}>
+		<AuthContext.Provider value={{ session, user: session?.user ?? null, loading, signIn, signUp, signOut, isConfigured: isSupabaseConfigured && Boolean(supabase), configError: supabaseConfigError }}>
 			{children}
 		</AuthContext.Provider>
 	);
