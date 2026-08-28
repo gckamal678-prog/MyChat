@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Shield, Key, Smartphone, Moon, Sun, FileText, X, Bell, Database, Palette, LogOut, ChevronRight, Camera } from 'lucide-react';
+import { User, Shield, Key, Smartphone, Moon, Sun, FileText, X, Bell, Database, Palette, LogOut, ChevronRight, Camera, Languages, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import StorageSettings from './StorageScreen';
 import { supabase } from '../services/supabase';
@@ -18,6 +18,9 @@ export default function SettingsScreen({ darkMode, setDarkMode }) {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [keyFingerprint, setKeyFingerprint] = useState(localStorage.getItem('mychat-key-fingerprint') || 'No key generated yet');
   const [sessionInfo, setSessionInfo] = useState('This device');
+  const [twoFactor, setTwoFactor] = useState(false);
+  const [language, setLanguage] = useState(localStorage.getItem('mychat-language') || 'English');
+  const [dataSaver, setDataSaver] = useState(localStorage.getItem('mychat-data-saver') === 'true');
   const saveProfile = async () => {
     const name = profileName.trim();
     if (!name) return;
@@ -44,6 +47,12 @@ export default function SettingsScreen({ darkMode, setDarkMode }) {
     if (enabled && 'Notification' in window && Notification.permission === 'default') await Notification.requestPermission();
     setNotifications(enabled);
     localStorage.setItem('mychat-notifications-enabled', String(enabled));
+  };
+
+  const setupTwoFactor = async () => {
+    const { data, error } = await supabase.auth.mfa.listFactors();
+    if (error) setProfileMessage(error.message); else setTwoFactor((data?.totp || []).length > 0);
+    if (!twoFactor) setProfileMessage('Enable TOTP in Supabase Auth to finish 2FA setup.');
   };
 
   React.useEffect(() => {
@@ -110,6 +119,7 @@ export default function SettingsScreen({ darkMode, setDarkMode }) {
             className="w-5 h-5 accent-indigo-600 rounded cursor-pointer" 
           />
         </div>
+        <div className="p-4 flex items-center justify-between"><div className="flex items-center space-x-3"><ShieldCheck className="w-5 h-5 text-indigo-400" /><div><h4 className="text-sm font-semibold">Two-factor authentication</h4><p className="text-xs text-slate-400">Protect sign-in with an authenticator app</p></div></div><button onClick={setupTwoFactor} className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs">{twoFactor ? 'Enabled' : 'Set up'}</button></div>
 
         {/* E2EE Keys View Toggle */}
         <div 
@@ -146,6 +156,8 @@ export default function SettingsScreen({ darkMode, setDarkMode }) {
           </div>
           <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2.5 py-1 rounded-full border border-emerald-500/30">{sessionInfo}</span>
         </div>
+        <div className="p-4 flex items-center justify-between"><div className="flex items-center space-x-3"><Database className="w-5 h-5 text-indigo-400" /><div><h4 className="text-sm font-semibold">Data usage</h4><p className="text-xs text-slate-400">Prefer lower media quality</p></div></div><input type="checkbox" checked={dataSaver} onChange={(event) => { setDataSaver(event.target.checked); localStorage.setItem('mychat-data-saver', String(event.target.checked)); }} className="w-5 h-5 accent-indigo-600" /></div>
+        <div className="p-4 flex items-center justify-between"><div className="flex items-center space-x-3"><Languages className="w-5 h-5 text-indigo-400" /><div><h4 className="text-sm font-semibold">Language</h4><p className="text-xs text-slate-400">Choose app language</p></div></div><select value={language} onChange={(event) => { setLanguage(event.target.value); localStorage.setItem('mychat-language', event.target.value); }} className="bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs"><option>English</option><option>Nepali</option></select></div>
         <div className="p-4 flex items-center justify-between">
           <div className="flex items-center space-x-3"><Bell className="w-5 h-5 text-indigo-400" /><div><h4 className="text-sm font-semibold">Notifications</h4><p className="text-xs text-slate-400">Message and call alerts</p></div></div>
           <input type="checkbox" checked={notifications} onChange={(event) => toggleNotifications(event.target.checked)} className="w-5 h-5 accent-indigo-600 cursor-pointer" />
