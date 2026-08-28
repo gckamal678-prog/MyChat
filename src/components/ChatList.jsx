@@ -47,11 +47,8 @@ export default function ChatList({ onSelectChat, darkMode, setDarkMode }) {
   };
 
   const openFriendChat = async (friend) => {
-    const roomName = `${user.user_metadata?.full_name || user.email} and ${friend.display_name}`;
-    const { data: room, error: roomError } = await supabase.from('rooms').insert({ name: roomName }).select('id, name, created_at').single();
+    const { data: room, error: roomError } = await supabase.rpc('create_private_room', { friend_user_id: friend.id });
     if (roomError) { setError(roomError.message); return; }
-    const { error: memberError } = await supabase.from('room_members').insert([{ room_id: room.id, user_id: user.id }, { room_id: room.id, user_id: friend.id }]);
-    if (memberError) { setError(memberError.message); return; }
     setShowFriends(false);
     onSelectChat({ ...room, avatar: friend.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(friend.display_name)}`, lastMessage: '', time: '', unread: 0, online: true });
   };

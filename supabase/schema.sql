@@ -122,6 +122,29 @@ create policy "Users can view their room memberships" on public.room_members for
 create policy "Users can create room memberships" on public.room_members for insert to authenticated with check (auth.uid() = user_id);
 create policy "Users can manage their push subscriptions" on public.push_subscriptions for all to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
+create or replace function public.create_private_room(friend_user_id uuid)
+returns public.rooms
+language plpgsql
+security invoker
+set search_path = public
+as $$
+declare
+  new_room public.rooms;
+begin
+  if friend_user_id is null or friend_user_id = auth.uid() then
+    raise exception 'Invalid friend';
+  end if;
+  if not exists (select 1 from public.friendships where user_id = auth.uid() and friend_id = friend_user_id) then
+    raise exception 'Users must be friends before starting a private chat';
+  end if;
+  insert into public.rooms (name) values ('Private MyChat') returning * into new_room;
+  insert into public.room_members (room_id, user_id) values (new_room.id, auth.uid()), (new_room.id, friend_user_id);
+  return new_room;
+end;
+$$;
+
+grant execute on function public.create_private_room(uuid) to authenticated;
+
 alter table public.messages replica identity full;
 
 do $$
