@@ -29,6 +29,8 @@ export default function SettingsScreen({ darkMode, setDarkMode }) {
     if (!file) return;
     setUploadingPhoto(true);
     try {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !sessionData.session) throw new Error('Your login session expired. Please log in again.');
       const { secure_url: avatarUrl } = await uploadToCloudinary(file, 'image');
       const { error } = await supabase.auth.updateUser({ data: { avatar_url: avatarUrl } });
       if (error) throw error;

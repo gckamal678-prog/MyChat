@@ -158,6 +158,7 @@ alter table public.call_logs enable row level security;
 
 drop policy if exists "Authenticated users can view posts" on public.posts;
 drop policy if exists "Users can create their own posts" on public.posts;
+drop policy if exists "Users can delete their own posts" on public.posts;
 drop policy if exists "Authenticated users can view post comments" on public.post_comments;
 drop policy if exists "Users can create their own post comments" on public.post_comments;
 drop policy if exists "Authenticated users can view post likes" on public.post_likes;
@@ -173,6 +174,7 @@ drop policy if exists "Users can view their call logs" on public.call_logs;
 drop policy if exists "Users can create their call logs" on public.call_logs;
 create policy "Authenticated users can view posts" on public.posts for select to authenticated using (true);
 create policy "Users can create their own posts" on public.posts for insert to authenticated with check (auth.uid() = user_id);
+create policy "Users can delete their own posts" on public.posts for delete to authenticated using (auth.uid() = user_id);
 create policy "Authenticated users can view post comments" on public.post_comments for select to authenticated using (true);
 create policy "Users can create their own post comments" on public.post_comments for insert to authenticated with check (auth.uid() = user_id);
 create policy "Authenticated users can view post likes" on public.post_likes for select to authenticated using (true);
