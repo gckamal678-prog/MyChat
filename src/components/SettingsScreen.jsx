@@ -1,15 +1,26 @@
 import React, { useState } from 'react';
-import { User, Shield, Key, Smartphone, Moon, Sun, FileText, X, Bell, Database, Palette, LogOut } from 'lucide-react';
+import { User, Shield, Key, Smartphone, Moon, Sun, FileText, X, Bell, Database, Palette, LogOut, ChevronRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import StorageSettings from './StorageScreen';
+import { supabase } from '../services/supabase';
 
 export default function SettingsScreen({ darkMode, setDarkMode }) {
+  const { user, signOut } = useAuth();
   const [showKeys, setShowKeys] = useState(false);
   const [biometricEnabled, setBiometricEnabled] = useState(true);
   const [showPolicy, setShowPolicy] = useState(false);
   const [notifications, setNotifications] = useState(true);
   const [showStorage, setShowStorage] = useState(false);
-  const { user, signOut } = useAuth();
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [profileName, setProfileName] = useState(user?.user_metadata?.full_name || '');
+  const [profileMessage, setProfileMessage] = useState('');
+  const saveProfile = async () => {
+    const name = profileName.trim();
+    if (!name) return;
+    const { error } = await supabase.auth.updateUser({ data: { full_name: name } });
+    if (error) setProfileMessage(error.message);
+    else { await supabase.from('profiles').upsert({ id: user.id, display_name: name }, { onConflict: 'id' }); setProfileMessage('Profile updated'); setEditingProfile(false); }
+  };
 
   return (
     <div className="p-6 max-w-2xl mx-auto text-white space-y-6">
@@ -24,10 +35,13 @@ export default function SettingsScreen({ darkMode, setDarkMode }) {
           alt="Profile" 
           className="w-16 h-16 rounded-full object-cover border-2 border-indigo-500" 
         />
-        <div>
+        <div className="flex-1">
           <h3 className="font-bold text-lg">{user?.user_metadata?.full_name || 'MyChat User'}</h3>
           <p className="text-xs text-slate-400">{user?.email}</p>
+          {editingProfile && <div className="flex gap-2 mt-2"><input value={profileName} onChange={(event) => setProfileName(event.target.value)} className="bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs" /><button onClick={saveProfile} className="bg-indigo-600 rounded-lg px-2 py-1 text-xs">Save</button></div>}
+          {profileMessage && <p className="text-xs text-emerald-400 mt-1">{profileMessage}</p>}
         </div>
+        <button onClick={() => setEditingProfile(!editingProfile)} className="text-xs text-indigo-400">{editingProfile ? 'Cancel' : 'Edit'}</button>
       </div>
 
       {/* Security & Privacy Sub-menu */}
