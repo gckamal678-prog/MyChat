@@ -5,6 +5,7 @@ import InstallPrompt from './components/InstallPrompt';
 import ChatWindow from './components/ChatWindow';
 import BiometricScreen from './components/BiometricScreen';
 import { ShieldCheck } from 'lucide-react';
+import { useAuth } from './context/AuthContext';
 
 // Lazy loading for performance optimization
 const ChatList = lazy(() => import('./components/ChatList'));
@@ -15,11 +16,11 @@ const SettingsScreen = lazy(() => import('./components/SettingsScreen'));
 
 export default function App() {
   const [showWelcome, setShowWelcome] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isBiometricVerified, setIsBiometricVerified] = useState(false);
   const [activeTab, setActiveTab] = useState('chats');
   const [selectedChat, setSelectedChat] = useState(null);
   const [darkMode, setDarkMode] = useState(true);
+  const { user, loading } = useAuth();
 
   useEffect(() => {
     const welcomeTimer = window.setTimeout(() => setShowWelcome(false), 1500);
@@ -40,8 +41,12 @@ export default function App() {
     );
   }
 
-  if (!isAuthenticated) {
-    return <AuthScreen onLoginSuccess={() => setIsAuthenticated(true)} />;
+  if (loading) {
+    return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400">Checking session...</div>;
+  }
+
+  if (!user) {
+    return <AuthScreen />;
   }
 
   if (!isBiometricVerified) {

@@ -1,20 +1,45 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ArrowLeft, Send, Mic, Paperclip, Play, Pause, Lock, Smile } from 'lucide-react';
+import { supabase } from '../services/supabase';
+import { useAuth } from '../context/AuthContext';
 
 export default function ChatWindow({ chat, onBack }) {
-  const [messages, setMessages] = useState([
-    { id: 1, sender: 'them', text: 'नमस्कार! PWA एप कस्तो चलिरहेको छ?', time: '10:30 AM', type: 'text' },
-    { id: 2, sender: 'me', text: 'एकदम राम्रो र फास्ट चलिरहेको छ दाइ।', time: '10:32 AM', type: 'text' },
-    { id: 3, sender: 'them', text: 'Voice note सुन्नुहोस्:', time: '10:35 AM', type: 'audio', duration: '0:15' },
-  ]);
+  const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
   const [isPlaying, setIsPlaying] = useState(false);
   const [showEmoji, setShowEmoji] = useState(false);
+  const [error, setError] = useState('');
+  const { user } = useAuth();
 
-  const handleSend = () => {
+  useEffect(() => {
+    let active = true;
+    const loadMessages = async () => {
+      const { data, error: messagesError } = await supabase
+        .from('messages')
+        .select('id, user_id, content, created_at')
+        .eq('room_id', chat.id)
+        .order('created_at', { ascending: true });
+      if (!active) return;
+      if (messagesError) setError(messagesError.message);
+      else setMessages((data ?? []).map((message) => ({ ...message, sender: message.user_id === user.id ? 'me' : 'them', text: message.content, type: 'text', time: new Date(message.created_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) })));
+    };
+    loadMessages();
+    const channel = supabase.channel(`room-${chat.id}`).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `room_id=eq.${chat.id}` }, (payload) => {
+      const message = payload.new;
+      setMessages((current) => current.some((item) => item.id === message.id) ? current : [...current, { ...message, sender: message.user_id === user.id ? 'me' : 'them', text: message.content, type: 'text', time: new Date(message.created_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) }]);
+    }).subscribe();
+    return () => { active = false; supabase.removeChannel(channel); };
+  }, [chat.id, user.id]);
+
+  const handleSend = async () => {
     if (!inputText.trim()) return;
-    setMessages((current) => [...current, { id: Date.now(), sender: 'me', text: inputText.trim(), time: 'Just now', type: 'text' }]);
+    const content = inputText.trim();
     setInputText('');
+    const { error: sendError } = await supabase.from('messages').insert({ room_id: chat.id, user_id: user.id, content });
+    if (sendError) {
+      setError(sendError.message);
+      setInputText(content);
+    }
   };
 
   const handleAttachment = () => {
@@ -51,6 +76,7 @@ export default function ChatWindow({ chat, onBack }) {
           <span>Messages are End-to-End Encrypted. No one outside of this chat can read them.</span>
         </p>
       </div>
+      {error && <p className="px-4 py-2 text-xs text-red-400">{error}. Check Supabase tables and policies.</p>}
 
       {/* Messages Area */}
       <div className="flex-1 p-4 space-y-4 overflow-y-auto">

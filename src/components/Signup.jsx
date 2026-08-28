@@ -1,11 +1,17 @@
 import React, { useState } from 'react';
 import { Lock, Mail, User, ShieldCheck, Eye, EyeOff } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
-export default function AuthScreen({ onLoginSuccess }) {
+export default function AuthScreen() {
   const [isSignup, setIsSignup] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [fullName, setFullName] = useState('');
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const { signIn, signUp, isConfigured } = useAuth();
 
   // Password Strength Checker
   const getPasswordStrength = (pass) => {
@@ -16,6 +22,28 @@ export default function AuthScreen({ onLoginSuccess }) {
   };
 
   const strength = getPasswordStrength(password);
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setError('');
+    setNotice('');
+    if (!isConfigured) {
+      setError('Supabase is not configured. Add the VITE_SUPABASE values first.');
+      return;
+    }
+
+    setSubmitting(true);
+    const result = isSignup
+      ? await signUp(email, password, { full_name: fullName })
+      : await signIn(email, password);
+    setSubmitting(false);
+
+    if (result.error) {
+      setError(result.error.message);
+    } else if (isSignup && !result.data.session) {
+      setNotice('Account created. Check your email to confirm your account.');
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
@@ -30,7 +58,7 @@ export default function AuthScreen({ onLoginSuccess }) {
           <p className="text-sm text-slate-400 mt-1">Connect securely with MyChat PWA</p>
         </div>
 
-        <form onSubmit={(e) => { e.preventDefault(); onLoginSuccess(); }} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           {isSignup && (
             <div>
               <label className="text-xs font-medium text-slate-300 mb-1 block">Full Name</label>
@@ -38,6 +66,8 @@ export default function AuthScreen({ onLoginSuccess }) {
                 <User className="absolute left-3 top-3.5 w-5 h-5 text-slate-500" />
                 <input
                   type="text"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
                   placeholder="Kamal GC"
                   required
                   className="w-full bg-slate-950 border border-slate-800 text-white pl-11 pr-4 py-3 rounded-xl focus:outline-none focus:border-indigo-500 text-sm"
@@ -91,11 +121,14 @@ export default function AuthScreen({ onLoginSuccess }) {
             )}
           </div>
 
+          {error && <p className="text-xs text-red-400">{error}</p>}
+          {notice && <p className="text-xs text-emerald-400">{notice}</p>}
           <button
             type="submit"
+            disabled={submitting}
             className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3 rounded-xl transition shadow-lg shadow-indigo-600/30 text-sm"
           >
-            {isSignup ? 'Sign Up' : 'Sign In'}
+            {submitting ? 'Please wait...' : (isSignup ? 'Sign Up' : 'Sign In')}
           </button>
         </form>
 

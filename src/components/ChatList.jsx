@@ -1,29 +1,38 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Search, Plus, Camera, Moon, Sun, CheckCheck } from 'lucide-react';
+import { supabase } from '../services/supabase';
+import { useAuth } from '../context/AuthContext';
 
 export default function ChatList({ onSelectChat, darkMode, setDarkMode }) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [chats, setChats] = useState([]);
+  const [error, setError] = useState('');
+  const { user } = useAuth();
 
-  const chats = [
-    {
-      id: 1,
-      name: 'Kamal GC',
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces',
-      lastMessage: 'PWA को मोडुल २ को कोड तयार छ!',
-      time: '10:45 AM',
-      unread: 2,
-      online: true,
-    },
-    {
-      id: 2,
-      name: 'PWA Developers Group',
-      avatar: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=100&h=100&fit=crop&crop=faces',
-      lastMessage: 'Service worker successfully registered.',
-      time: 'Yesterday',
-      unread: 0,
-      online: false,
-    },
-  ];
+  useEffect(() => {
+    let active = true;
+    const loadRooms = async () => {
+      const { data, error: roomsError } = await supabase
+        .from('rooms')
+        .select('id, name, created_at')
+        .order('created_at', { ascending: true });
+      if (!active) return;
+      if (roomsError) {
+        setError(roomsError.message);
+        return;
+      }
+      setChats((data ?? []).map((room) => ({
+        ...room,
+        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(room.name)}&background=4f46e5&color=fff`,
+        lastMessage: 'Open room to load messages',
+        time: '',
+        unread: 0,
+        online: true,
+      })));
+    };
+    if (user && supabase) loadRooms();
+    return () => { active = false; };
+  }, [user]);
 
   const filteredChats = chats.filter((chat) =>
     chat.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -64,6 +73,7 @@ export default function ChatList({ onSelectChat, darkMode, setDarkMode }) {
 
       {/* Chat List Items */}
       <div className="space-y-2 overflow-y-auto flex-1">
+        {error && <p className="text-xs text-red-400">{error}. Run supabase/schema.sql first.</p>}
         {filteredChats.map((chat) => (
           <div
             key={chat.id}
