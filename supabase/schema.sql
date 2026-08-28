@@ -98,6 +98,8 @@ create table if not exists public.posts (
   user_id uuid not null references auth.users(id) on delete cascade,
   community text not null default 'MyChat Developers',
   content text not null,
+  media_url text,
+  media_type text check (media_type in ('image', 'video', 'gif')),
   created_at timestamptz not null default now()
 );
 
@@ -106,8 +108,13 @@ create table if not exists public.post_comments (
   post_id uuid not null references public.posts(id) on delete cascade,
   user_id uuid not null references auth.users(id) on delete cascade,
   content text not null,
+  parent_id uuid references public.post_comments(id) on delete cascade,
   created_at timestamptz not null default now()
 );
+
+alter table public.posts add column if not exists media_url text;
+alter table public.posts add column if not exists media_type text;
+alter table public.post_comments add column if not exists parent_id uuid references public.post_comments(id) on delete cascade;
 
 create table if not exists public.post_likes (
   post_id uuid not null references public.posts(id) on delete cascade,
