@@ -11,6 +11,23 @@ create table if not exists public.profiles (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.friend_requests (
+  id uuid primary key default gen_random_uuid(),
+  sender_id uuid not null references auth.users(id) on delete cascade,
+  receiver_id uuid not null references auth.users(id) on delete cascade,
+  status text not null default 'pending' check (status in ('pending', 'accepted', 'rejected')),
+  created_at timestamptz not null default now(),
+  unique (sender_id, receiver_id)
+);
+
+create table if not exists public.friendships (
+  user_id uuid not null references auth.users(id) on delete cascade,
+  friend_id uuid not null references auth.users(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (user_id, friend_id),
+  check (user_id <> friend_id)
+);
+
 create or replace function public.handle_new_user()
 returns trigger language plpgsql security definer set search_path = public
 as $$ begin
@@ -36,15 +53,27 @@ where not exists (select 1 from public.rooms);
 alter table public.rooms enable row level security;
 alter table public.messages enable row level security;
 alter table public.profiles enable row level security;
+alter table public.friend_requests enable row level security;
+alter table public.friendships enable row level security;
 
 drop policy if exists "Authenticated users can view rooms" on public.rooms;
 drop policy if exists "Authenticated users can view profiles" on public.profiles;
+drop policy if exists "Users can view their friend requests" on public.friend_requests;
+drop policy if exists "Users can send friend requests" on public.friend_requests;
+drop policy if exists "Users can update received requests" on public.friend_requests;
+drop policy if exists "Users can view their friendships" on public.friendships;
+drop policy if exists "Users can create friendships" on public.friendships;
 drop policy if exists "Authenticated users can view messages" on public.messages;
 drop policy if exists "Users can send their own messages" on public.messages;
 create policy "Authenticated users can view rooms"
   on public.rooms for select to authenticated using (true);
 
 create policy "Authenticated users can view profiles" on public.profiles for select to authenticated using (true);
+create policy "Users can view their friend requests" on public.friend_requests for select to authenticated using (auth.uid() = sender_id or auth.uid() = receiver_id);
+create policy "Users can send friend requests" on public.friend_requests for insert to authenticated with check (auth.uid() = sender_id and sender_id <> receiver_id);
+create policy "Users can update received requests" on public.friend_requests for update to authenticated using (auth.uid() = receiver_id) with check (auth.uid() = receiver_id);
+create policy "Users can view their friendships" on public.friendships for select to authenticated using (auth.uid() = user_id or auth.uid() = friend_id);
+create policy "Users can create friendships" on public.friendships for insert to authenticated with check (auth.uid() = user_id);
 
 create policy "Authenticated users can view messages"
   on public.messages for select to authenticated using (true);

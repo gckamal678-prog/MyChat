@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Search, Plus, Camera, Moon, Sun, CheckCheck } from 'lucide-react';
+import { Search, Plus, Camera, Moon, Sun, UserPlus, X } from 'lucide-react';
 import { supabase } from '../services/supabase';
 import { useAuth } from '../context/AuthContext';
 
@@ -7,7 +7,38 @@ export default function ChatList({ onSelectChat, darkMode, setDarkMode }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [chats, setChats] = useState([]);
   const [error, setError] = useState('');
+  const [showFriends, setShowFriends] = useState(false);
+  const [people, setPeople] = useState([]);
+  const [friends, setFriends] = useState([]);
+  const [friendSearch, setFriendSearch] = useState('');
+  const [incoming, setIncoming] = useState([]);
   const { user } = useAuth();
+
+  const loadFriends = async () => {
+    const { data: requests } = await supabase.from('friend_requests').select('id, sender_id, receiver_id, status').or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`);
+    const { data: links } = await supabase.from('friendships').select('friend_id, user_id').or(`user_id.eq.${user.id},friend_id.eq.${user.id}`);
+    const ids = (links || []).map((link) => link.user_id === user.id ? link.friend_id : link.user_id);
+    const { data: profiles } = ids.length ? await supabase.from('profiles').select('id, display_name, avatar_url').in('id', ids) : { data: [] };
+    setFriends(profiles || []);
+    setIncoming((requests || []).filter((request) => request.receiver_id === user.id && request.status === 'pending'));
+  };
+
+  const openFriends = async () => { setShowFriends(true); await loadFriends(); };
+  const searchPeople = async () => {
+    if (!friendSearch.trim()) { setPeople([]); return; }
+    const { data } = await supabase.from('profiles').select('id, display_name, avatar_url').ilike('display_name', `%${friendSearch.trim()}%`).neq('id', user.id).limit(10);
+    setPeople(data || []);
+  };
+  const sendRequest = async (receiverId) => {
+    const { error: requestError } = await supabase.from('friend_requests').insert({ sender_id: user.id, receiver_id: receiverId });
+    if (requestError) setError(requestError.code === '23505' ? 'Friend request already sent.' : requestError.message); else setPeople((current) => current.filter((person) => person.id !== receiverId));
+  };
+  const acceptRequest = async (request) => {
+    const { error: updateError } = await supabase.from('friend_requests').update({ status: 'accepted' }).eq('id', request.id);
+    if (updateError) { setError(updateError.message); return; }
+    await supabase.from('friendships').upsert([{ user_id: user.id, friend_id: request.sender_id }, { user_id: request.sender_id, friend_id: user.id }]);
+    await loadFriends();
+  };
 
   useEffect(() => {
     let active = true;
@@ -47,8 +78,8 @@ export default function ChatList({ onSelectChat, darkMode, setDarkMode }) {
           <button className="p-2 bg-slate-900 rounded-xl hover:bg-slate-800 transition">
             <Camera className="w-5 h-5 text-indigo-400" />
           </button>
-          <button className="p-2 bg-slate-900 rounded-xl hover:bg-slate-800 transition">
-            <Plus className="w-5 h-5 text-indigo-400" />
+          <button onClick={openFriends} aria-label="Add friend" className="p-2 bg-slate-900 rounded-xl hover:bg-slate-800 transition">
+            <UserPlus className="w-5 h-5 text-indigo-400" />
           </button>
           <button 
             onClick={() => setDarkMode(!darkMode)}
@@ -103,6 +134,7 @@ export default function ChatList({ onSelectChat, darkMode, setDarkMode }) {
           </div>
         ))}
       </div>
+      {showFriends && <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"><div className="w-full max-w-md bg-slate-900 border border-slate-700 rounded-2xl p-5 space-y-4"><div className="flex justify-between items-center"><h2 className="font-bold">Friends</h2><button onClick={() => setShowFriends(false)}><X /></button></div><div className="flex gap-2"><input value={friendSearch} onChange={(event) => setFriendSearch(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && searchPeople()} placeholder="Search by name" className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm" /><button onClick={searchPeople} className="bg-indigo-600 rounded-xl px-3 text-xs">Search</button></div>{incoming.length > 0 && <div><p className="text-xs text-slate-400 mb-2">Friend requests</p>{incoming.map((request) => <div key={request.id} className="flex justify-between items-center py-2"><span className="text-sm">New request</span><button onClick={() => acceptRequest(request)} className="bg-emerald-600 rounded-lg px-3 py-1 text-xs">Accept</button></div>)}</div>}<div>{friends.length > 0 && <p className="text-xs text-slate-400 mb-2">Your friends</p>}{friends.map((friend) => <div key={friend.id} className="flex items-center gap-2 py-2"><img src={friend.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(friend.display_name)}`} className="w-8 h-8 rounded-full" /><span className="text-sm">{friend.display_name}</span></div>)}</div>{people.map((person) => <div key={person.id} className="flex items-center justify-between py-2"><span className="text-sm">{person.display_name}</span><button onClick={() => sendRequest(person.id)} className="bg-indigo-600 rounded-lg px-3 py-1 text-xs">Add</button></div>)}</div></div>}
     </div>
   );
 }
