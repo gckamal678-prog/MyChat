@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Phone, Video, PhoneIncoming, PhoneOutgoing, PhoneMissed, Mic, MicOff, Camera, VideoOff, PhoneOff, Volume2, Search, Plus } from 'lucide-react';
+import { Phone, Video, PhoneOutgoing, Mic, MicOff, Camera, VideoOff, PhoneOff, Volume2, Search, Plus, PhoneCall } from 'lucide-react';
 import AgoraRTC from 'agora-rtc-sdk-ng';
 import { agoraAppId, createAgoraClient, isAgoraConfigured } from '../services/agora';
 import { useAuth } from '../context/AuthContext';
@@ -12,21 +12,18 @@ export default function CallsScreen() {
   const [cameraError, setCameraError] = useState('');
   const [remoteUsers, setRemoteUsers] = useState([]);
   const [callLogs, setCallLogs] = useState([]);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [search, setSearch] = useState('');
   const clientRef = useRef(null);
   const localTracksRef = useRef([]);
   const localVideoRef = useRef(null);
   const { user } = useAuth();
 
   useEffect(() => {
-    const loadCallLogs = () => supabase.from('call_logs').select('id, mode, channel, started_at, ended_at').order('started_at', { ascending: false }).then(({ data, error }) => {
+    supabase.from('call_logs').select('id, mode, channel, started_at, ended_at').order('started_at', { ascending: false }).then(({ data, error }) => {
       if (error) setCameraError(error.message);
       else setCallLogs(data || []);
     });
-    loadCallLogs();
-    const channel = supabase.channel('call-history').on('postgres_changes', { event: '*', schema: 'public', table: 'call_logs', filter: `caller_id=eq.${user.id}` }, loadCallLogs).subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [user.id]);
+  }, []);
 
   useEffect(() => () => {
     localTracksRef.current.forEach((track) => track.close());
@@ -79,43 +76,22 @@ export default function CallsScreen() {
     setActiveCall(null);
   };
 
-  const filteredCallLogs = callLogs.filter((log) => log.channel.toLowerCase().includes(searchQuery.toLowerCase()));
+  const filteredLogs = callLogs.filter((log) => log.channel.toLowerCase().includes(search.toLowerCase()));
 
   return (
-    <div className="p-4 max-w-2xl mx-auto text-white space-y-6">
-      <div><h1 className="text-2xl font-bold">Calls</h1><p className="text-xs text-slate-500 mt-1">Your recent audio and video calls</p></div>
+    <div className="p-4 max-w-2xl mx-auto text-white space-y-5 relative min-h-[520px]">
+      <header className="flex items-center justify-between">
+        <div><h1 className="text-2xl font-bold">Calls</h1><p className="text-xs text-slate-400 mt-1">Your recent voice and video calls</p></div>
+      </header>
       {cameraError && <p className="text-xs text-red-400">{cameraError}</p>}
 
-      <div className="relative"><Search className="absolute left-3 top-3.5 w-4 h-4 text-slate-500" /><input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search call history" className="w-full bg-slate-900 border border-slate-800 rounded-2xl pl-10 pr-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500" /></div>
+      <div className="relative"><Search className="absolute left-3 top-3 w-4 h-4 text-slate-500" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search call history" className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2.5 pl-9 pr-3 text-sm outline-none focus:border-indigo-500" /></div>
 
-      {/* Call Logs List */}
-      <div className="space-y-2 pb-24">
-        {filteredCallLogs.map((log) => (
-          <div key={log.id} className="flex items-center justify-between p-3.5 bg-slate-900 border border-slate-800 rounded-2xl">
-            <div className="flex items-center space-x-3">
-              <div className="p-3 bg-slate-800 rounded-xl text-indigo-400">
-                {log.mode === 'video' ? <Video className="w-5 h-5" /> : <Phone className="w-5 h-5" />}
-              </div>
-              <div>
-                <h4 className="font-semibold text-sm">MyChat call</h4>
-                <div className="flex items-center space-x-1.5 text-xs text-slate-400 mt-0.5">
-                  <PhoneOutgoing className="w-3.5 h-3.5 text-indigo-400" />
-                  <span>{new Date(log.started_at).toLocaleString()} {log.ended_at ? '• ended' : '• active'}</span>
-                </div>
-              </div>
-            </div>
-            <button 
-              onClick={() => startCall(log.mode)}
-              className="p-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl transition text-indigo-400"
-            >
-              {log.mode === 'video' ? <Video className="w-5 h-5" /> : <Phone className="w-5 h-5" />}
-            </button>
-          </div>
-        ))}
-        {!filteredCallLogs.length && <div className="bg-slate-900/70 border border-dashed border-slate-700 rounded-2xl p-8 text-center"><Phone className="w-10 h-10 mx-auto text-indigo-400 mb-3" /><h3 className="font-semibold">No recent calls</h3><p className="text-xs text-slate-400 mt-1">Start a secure audio or video call.</p><button onClick={() => startCall('audio')} className="mt-4 bg-indigo-600 hover:bg-indigo-500 rounded-xl px-4 py-2.5 text-xs font-semibold">Start a call</button></div>}
-      </div>
-
-      <div className="fixed bottom-24 right-5 md:bottom-8 md:right-8 z-30 flex flex-col gap-2"><button onClick={() => startCall('video')} aria-label="Start video call" className="p-3 bg-slate-800 text-indigo-300 rounded-full shadow-lg"><Video className="w-5 h-5" /></button><button onClick={() => startCall('audio')} aria-label="Start audio call" className="p-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-full shadow-xl shadow-indigo-600/30"><Plus className="w-6 h-6" /></button></div>
+      <section className="space-y-2">
+        {filteredLogs.map((log) => <div key={log.id} className="flex items-center gap-3 p-3.5 bg-slate-900 border border-slate-800 rounded-2xl hover:border-slate-700"><div className="p-3 bg-slate-800 rounded-xl text-indigo-400">{log.mode === 'video' ? <Video className="w-5 h-5" /> : <Phone className="w-5 h-5" />}</div><div className="flex-1 min-w-0"><h4 className="font-semibold text-sm truncate">MyChat call</h4><p className="text-xs text-slate-400 flex items-center gap-1.5 mt-1"><PhoneOutgoing className="w-3.5 h-3.5 text-indigo-400" />{new Date(log.started_at).toLocaleString()} <span>•</span><span className={log.ended_at ? 'text-slate-500' : 'text-emerald-400'}>{log.ended_at ? 'Ended' : 'Active'}</span></p></div><button onClick={() => startCall(log.mode)} aria-label={`Call again by ${log.mode}`} className="p-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-indigo-400">{log.mode === 'video' ? <Video className="w-5 h-5" /> : <Phone className="w-5 h-5" />}</button></div>)}
+        {!filteredLogs.length && <div className="min-h-[300px] rounded-2xl border border-dashed border-slate-700 bg-slate-900/60 flex flex-col items-center justify-center text-center p-8"><div className="p-4 rounded-full bg-indigo-600/15 text-indigo-300 mb-4"><PhoneCall className="w-10 h-10" /></div><h2 className="font-semibold text-lg">No recent calls</h2><p className="text-sm text-slate-400 mt-2 max-w-xs">Start a voice or video call and your history will appear here.</p><button onClick={() => startCall('audio')} className="mt-5 bg-indigo-600 hover:bg-indigo-500 rounded-xl px-4 py-2.5 text-sm font-semibold">Start a new call</button></div>}
+      </section>
+      <div className="fixed bottom-24 right-5 md:bottom-8 md:right-8 flex flex-col gap-2 items-end"><button onClick={() => startCall('video')} aria-label="Start video call" className="p-3 bg-slate-800 border border-slate-700 rounded-full text-indigo-300 shadow-xl"><Video className="w-5 h-5" /></button><button onClick={() => startCall('audio')} aria-label="Start audio call" className="p-4 bg-indigo-600 hover:bg-indigo-500 rounded-full text-white shadow-xl shadow-indigo-600/30"><Plus className="w-6 h-6" /></button></div>
 
       {/* Active Call Modal / Overlay */}
       {activeCall && (
