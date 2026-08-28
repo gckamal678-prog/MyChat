@@ -28,6 +28,14 @@ create table if not exists public.friendships (
   check (user_id <> friend_id)
 );
 
+create table if not exists public.follows (
+  follower_id uuid not null references auth.users(id) on delete cascade,
+  following_id uuid not null references auth.users(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (follower_id, following_id),
+  check (follower_id <> following_id)
+);
+
 create or replace function public.handle_new_user()
 returns trigger language plpgsql security definer set search_path = public
 as $$ begin
@@ -55,6 +63,7 @@ alter table public.messages enable row level security;
 alter table public.profiles enable row level security;
 alter table public.friend_requests enable row level security;
 alter table public.friendships enable row level security;
+alter table public.follows enable row level security;
 
 drop policy if exists "Authenticated users can view rooms" on public.rooms;
 drop policy if exists "Authenticated users can view profiles" on public.profiles;
@@ -63,6 +72,8 @@ drop policy if exists "Users can send friend requests" on public.friend_requests
 drop policy if exists "Users can update received requests" on public.friend_requests;
 drop policy if exists "Users can view their friendships" on public.friendships;
 drop policy if exists "Users can create friendships" on public.friendships;
+drop policy if exists "Users can view follows" on public.follows;
+drop policy if exists "Users can manage their follows" on public.follows;
 drop policy if exists "Authenticated users can view messages" on public.messages;
 drop policy if exists "Users can send their own messages" on public.messages;
 drop policy if exists "Authenticated users can delete rooms" on public.rooms;
@@ -77,6 +88,8 @@ create policy "Users can send friend requests" on public.friend_requests for ins
 create policy "Users can update received requests" on public.friend_requests for update to authenticated using (auth.uid() = receiver_id) with check (auth.uid() = receiver_id);
 create policy "Users can view their friendships" on public.friendships for select to authenticated using (auth.uid() = user_id or auth.uid() = friend_id);
 create policy "Users can create friendships" on public.friendships for insert to authenticated with check (auth.uid() = user_id);
+create policy "Users can view follows" on public.follows for select to authenticated using (true);
+create policy "Users can manage their follows" on public.follows for all to authenticated using (auth.uid() = follower_id) with check (auth.uid() = follower_id and follower_id <> following_id);
 
 create policy "Authenticated users can view messages"
   on public.messages for select to authenticated using (true);
