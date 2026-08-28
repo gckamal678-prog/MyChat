@@ -1,173 +1,30 @@
-import React, { useState } from 'react';
-import { Heart, MessageCircle, Share2, Send, Plus, X, FastForward } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Heart, MessageCircle, Share2, Send, Plus, X } from 'lucide-react';
+import { supabase } from '../services/supabase';
+import { uploadToCloudinary } from '../services/cloudinary';
+import { useAuth } from '../context/AuthContext';
 
 export default function Reels() {
-  const [reels, setReels] = useState([
-    {
-      id: 1,
-      author: 'Kamal GC',
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces',
-      caption: 'Building with MyChat. #React',
-      videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-coder-working-on-his-laptop-in-a-office-43088-large.mp4',
-      likes: 1240,
-      comments: 89,
-      isLiked: false,
-      speed: 1,
-      commentsList: [],
-    },
-    {
-      id: 2,
-      author: 'MyChat Tech',
-      avatar: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=100&h=100&fit=crop&crop=faces',
-      caption: 'Smooth vertical scrolling and offline support using Service Workers.',
-      videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-hands-of-a-woman-working-on-a-laptop-43086-large.mp4',
-      likes: 850,
-      comments: 42,
-      isLiked: false,
-      speed: 1,
-      commentsList: [],
-    },
-  ]);
-  const [showComposer, setShowComposer] = useState(false);
+  const { user } = useAuth();
+  const [reels, setReels] = useState([]);
   const [caption, setCaption] = useState('');
   const [videoFile, setVideoFile] = useState(null);
   const [commentFor, setCommentFor] = useState(null);
-  const [commentText, setCommentText] = useState('');
+  const [comment, setComment] = useState('');
+  const [showComposer, setShowComposer] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleLike = (id) => {
-    setReels(reels.map(reel => {
-      if (reel.id === id) {
-        return {
-          ...reel,
-          likes: reel.isLiked ? reel.likes - 1 : reel.likes + 1,
-          isLiked: !reel.isLiked
-        };
-      }
-      return reel;
-    }));
+  const loadReels = async () => {
+    const { data, error: queryError } = await supabase.from('reels').select('id, user_id, caption, video_url, created_at, reel_comments(id, user_id, content), reel_likes(user_id)').order('created_at', { ascending: false });
+    if (queryError) { setError(queryError.message); return; }
+    const ids = [...new Set((data || []).flatMap((reel) => [reel.user_id, ...(reel.reel_comments || []).map((item) => item.user_id), ...(reel.reel_likes || []).map((item) => item.user_id)]))];
+    const { data: profileRows } = await supabase.from('profiles').select('id, display_name, avatar_url').in('id', ids);
+    const profiles = new Map((profileRows || []).map((profile) => [profile.id, profile]));
+    setReels((data || []).map((reel) => ({ ...reel, author: profiles.get(reel.user_id)?.display_name || 'MyChat User', avatar: profiles.get(reel.user_id)?.avatar_url || 'https://ui-avatars.com/api/?name=MyChat&background=4f46e5&color=fff', liked: (reel.reel_likes || []).some((like) => like.user_id === user.id), likeNames: (reel.reel_likes || []).map((like) => profiles.get(like.user_id)?.display_name || 'MyChat User'), commentRows: (reel.reel_comments || []).map((item) => `${profiles.get(item.user_id)?.display_name || 'MyChat User'}: ${item.content}`) })));
   };
-
-  const handleNotInterested = (id) => {
-    setReels(reels.filter(reel => reel.id !== id));
-  };
-
-  const toggleSpeed = (id) => {
-    setReels(reels.map(reel => {
-      if (reel.id === id) {
-        const nextSpeed = reel.speed === 1 ? 1.5 : reel.speed === 1.5 ? 2 : 1;
-        return { ...reel, speed: nextSpeed };
-      }
-      return reel;
-    }));
-  };
-
-  const handlePost = (event) => {
-    event.preventDefault();
-    if (!caption.trim() || !videoFile) return;
-    setReels((current) => [{ id: Date.now(), author: 'Kamal GC', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces', caption: caption.trim(), videoUrl: URL.createObjectURL(videoFile), likes: 0, comments: 0, isLiked: false, speed: 1, commentsList: [] }, ...current]);
-    setCaption('');
-    setVideoFile(null);
-    setShowComposer(false);
-  };
-
-  const handleComment = (event) => {
-    event.preventDefault();
-    if (!commentText.trim()) return;
-    setReels((current) => current.map((reel) => reel.id === commentFor ? { ...reel, comments: reel.comments + 1, commentsList: [...reel.commentsList, commentText.trim()] } : reel));
-    setCommentText('');
-    setCommentFor(null);
-  };
-
-  const handleShare = async (reel) => {
-    if (navigator.share) await navigator.share({ title: reel.author, text: reel.caption, url: reel.videoUrl });
-    else await navigator.clipboard?.writeText(reel.caption);
-  };
-
-  if (reels.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center h-[80vh] text-slate-400 space-y-3">
-        <p>No more reels left in your feed.</p>
-        <button 
-          onClick={() => window.location.reload()} 
-          className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-xs font-semibold"
-        >
-          Refresh Feed
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="h-[calc(100vh-5rem)] md:h-[90vh] max-w-md mx-auto overflow-y-scroll snap-y snap-mandatory rounded-3xl bg-slate-950 border border-slate-800 shadow-2xl relative no-scrollbar">
-      <button onClick={() => setShowComposer(true)} aria-label="Post a reel" className="absolute top-4 right-4 z-30 p-2.5 rounded-full bg-indigo-600 text-white shadow-lg"><Plus className="w-5 h-5" /></button>
-      {reels.map((reel) => (
-        <div key={reel.id} className="w-full h-full snap-start relative flex items-center justify-center bg-slate-900">
-          {/* Video Element */}
-          <video
-            src={reel.videoUrl}
-            className="w-full h-full object-cover"
-            loop
-            autoPlay
-            muted
-            playsInline
-          />
-
-          {/* Semi-transparent Gradient Overlay */}
-          <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/80 pointer-events-none" />
-
-          {/* Top Controls: Not Interested & Speed */}
-          <div className="absolute top-4 left-4 right-4 flex justify-between items-center z-20">
-            <button
-              onClick={() => handleNotInterested(reel.id)}
-              className="bg-black/40 backdrop-blur-md border border-white/10 text-white text-[10px] px-3 py-1.5 rounded-full hover:bg-black/60 transition"
-            >
-              Not Interested
-            </button>
-            <button
-              onClick={() => toggleSpeed(reel.id)}
-              className="bg-black/40 backdrop-blur-md border border-white/10 text-white text-[10px] px-3 py-1.5 rounded-full flex items-center space-x-1 hover:bg-black/60 transition"
-            >
-              <FastForward className="w-3 h-3" />
-              <span>{reel.speed}x</span>
-            </button>
-          </div>
-
-          {/* Right Floating Interaction Buttons */}
-          <div className="absolute right-4 bottom-20 flex flex-col items-center space-y-4 z-20">
-            <button
-              onClick={() => handleLike(reel.id)}
-              className="p-3 bg-black/40 backdrop-blur-md border border-white/10 rounded-full text-white hover:scale-110 transition"
-            >
-              <Heart className={`w-6 h-6 ${reel.isLiked ? 'text-red-500 fill-red-500' : 'text-white'}`} />
-            </button>
-            <span className="text-xs text-white font-bold">{reel.likes}</span>
-
-            <button onClick={() => setCommentFor(reel.id)} aria-label="Comment" className="p-3 bg-black/40 backdrop-blur-md border border-white/10 rounded-full text-white hover:scale-110 transition">
-              <MessageCircle className="w-6 h-6" />
-            </button>
-            <span className="text-xs text-white font-bold">{reel.comments}</span>
-
-            <button onClick={() => handleShare(reel)} aria-label="Share" className="p-3 bg-black/40 backdrop-blur-md border border-white/10 rounded-full text-white hover:scale-110 transition">
-              <Share2 className="w-6 h-6" />
-            </button>
-
-            <button className="p-3 bg-indigo-600 rounded-full text-white hover:scale-110 transition shadow-lg shadow-indigo-600/50">
-              <Send className="w-6 h-6" />
-            </button>
-          </div>
-
-          {/* Bottom Details / Author Info */}
-          <div className="absolute bottom-6 left-4 right-16 z-20 space-y-2">
-            <div className="flex items-center space-x-3">
-              <img src={reel.avatar} alt={reel.author} className="w-10 h-10 rounded-full object-cover border border-white/20" />
-              <h4 className="font-semibold text-sm text-white">{reel.author}</h4>
-            </div>
-            <p className="text-xs text-slate-200 line-clamp-2">{reel.caption}</p>
-          </div>
-        </div>
-      ))}
-      {showComposer && <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"><form onSubmit={handlePost} className="w-full max-w-sm bg-slate-900 border border-slate-700 rounded-2xl p-5 space-y-3"><div className="flex justify-between"><h2 className="font-bold">Post a Reel</h2><button type="button" onClick={() => setShowComposer(false)}><X /></button></div><textarea value={caption} onChange={(event) => setCaption(event.target.value)} required placeholder="Write a caption" className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-sm" /><input type="file" accept="video/*" required onChange={(event) => setVideoFile(event.target.files?.[0] || null)} className="w-full text-sm" /><button className="w-full bg-indigo-600 rounded-xl py-3 font-semibold">Post Reel</button></form></div>}
-      {commentFor && <div className="fixed inset-0 z-50 bg-black/70 flex items-end justify-center p-4"><form onSubmit={handleComment} className="w-full max-w-md bg-slate-900 rounded-2xl p-4 flex gap-2"><input autoFocus value={commentText} onChange={(event) => setCommentText(event.target.value)} placeholder="Write a comment" className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 text-sm" /><button className="bg-indigo-600 rounded-xl px-4"><Send className="w-4 h-4" /></button><button type="button" onClick={() => setCommentFor(null)}><X /></button></form></div>}
-    </div>
-  );
+  useEffect(() => { loadReels(); const channel = supabase.channel('reels-live').on('postgres_changes', { event: '*', schema: 'public', table: 'reels' }, loadReels).on('postgres_changes', { event: '*', schema: 'public', table: 'reel_comments' }, loadReels).on('postgres_changes', { event: '*', schema: 'public', table: 'reel_likes' }, loadReels).subscribe(); return () => { supabase.removeChannel(channel); }; }, [user.id]);
+  const postReel = async (event) => { event.preventDefault(); if (!caption.trim() || !videoFile) return; try { const upload = await uploadToCloudinary(videoFile, 'video'); const { error: insertError } = await supabase.from('reels').insert({ user_id: user.id, caption: caption.trim(), video_url: upload.secure_url }); if (insertError) throw insertError; setCaption(''); setVideoFile(null); setShowComposer(false); } catch (uploadError) { setError(uploadError.message); } };
+  const toggleLike = async (reel) => { const result = reel.liked ? await supabase.from('reel_likes').delete().match({ reel_id: reel.id, user_id: user.id }) : await supabase.from('reel_likes').insert({ reel_id: reel.id, user_id: user.id }); if (result.error) setError(result.error.message); };
+  const addComment = async (event) => { event.preventDefault(); if (!comment.trim()) return; const { error: insertError } = await supabase.from('reel_comments').insert({ reel_id: commentFor, user_id: user.id, content: comment.trim() }); if (insertError) setError(insertError.message); else { setComment(''); setCommentFor(null); } };
+  return <div className="h-[calc(100vh-5rem)] md:h-[90vh] max-w-md mx-auto overflow-y-scroll snap-y snap-mandatory rounded-3xl bg-slate-950 border border-slate-800 relative">{error && <p className="absolute top-3 left-3 right-3 z-40 text-xs text-red-300 bg-black/80 p-2 rounded">{error}</p>}<button onClick={() => setShowComposer(true)} aria-label="Post a reel" className="absolute top-4 right-4 z-30 p-2.5 rounded-full bg-indigo-600 text-white"><Plus className="w-5 h-5" /></button>{reels.map((reel) => <article key={reel.id} className="w-full min-h-full snap-start relative bg-slate-900"><video src={reel.video_url} className="w-full h-full object-cover" loop autoPlay muted playsInline controls /><div className="absolute inset-x-4 bottom-6 z-20"><div className="flex items-center gap-3"><img src={reel.avatar} alt={reel.author} className="w-10 h-10 rounded-full" /><strong>{reel.author}</strong></div><p className="text-sm mt-2">{reel.caption}</p><div className="flex gap-5 mt-3 text-xs"><button onClick={() => toggleLike(reel)} className={reel.liked ? 'text-red-400' : ''}><Heart className="inline w-5 h-5" fill={reel.liked ? 'currentColor' : 'none'} /> {reel.reel_likes?.length || 0}</button><button onClick={() => setCommentFor(reel.id)}><MessageCircle className="inline w-5 h-5" /> {reel.reel_comments?.length || 0}</button><button onClick={() => navigator.share?.({ title: reel.author, text: reel.caption, url: reel.video_url })}><Share2 className="inline w-5 h-5" /></button></div><p className="text-[11px] text-slate-300 mt-2">Liked by: {reel.likeNames.join(', ') || 'Nobody yet'}</p>{reel.commentRows.map((row) => <p key={row} className="text-[11px] text-slate-200">{row}</p>)}</div></article>)}{!reels.length && <p className="p-8 text-sm text-slate-400">No reels yet. Upload the first one.</p>}{showComposer && <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"><form onSubmit={postReel} className="w-full max-w-sm bg-slate-900 p-5 rounded-2xl space-y-3"><div className="flex justify-between"><h2 className="font-bold">Post a Reel</h2><button type="button" onClick={() => setShowComposer(false)}><X /></button></div><textarea value={caption} onChange={(event) => setCaption(event.target.value)} required placeholder="Write a caption" className="w-full bg-slate-950 rounded-xl p-3 text-sm" /><input type="file" accept="video/*" required onChange={(event) => setVideoFile(event.target.files?.[0] || null)} /><button className="w-full bg-indigo-600 rounded-xl py-3 font-semibold">Upload Reel</button></form></div>}{commentFor && <div className="fixed inset-0 z-50 bg-black/70 flex items-end justify-center p-4"><form onSubmit={addComment} className="w-full max-w-md bg-slate-900 p-4 rounded-2xl flex gap-2"><input autoFocus value={comment} onChange={(event) => setComment(event.target.value)} placeholder="Write a comment" className="flex-1 bg-slate-950 rounded-xl px-3 text-sm" /><button className="bg-indigo-600 rounded-xl px-4"><Send className="w-4 h-4" /></button><button type="button" onClick={() => setCommentFor(null)}><X /></button></form></div>}</div>;
 }

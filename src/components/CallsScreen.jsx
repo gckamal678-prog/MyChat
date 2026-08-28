@@ -3,6 +3,7 @@ import { Phone, Video, PhoneIncoming, PhoneOutgoing, PhoneMissed, Mic, MicOff, C
 import AgoraRTC from 'agora-rtc-sdk-ng';
 import { agoraAppId, createAgoraClient, isAgoraConfigured } from '../services/agora';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '../services/supabase';
 
 export default function CallsScreen() {
   const [activeCall, setActiveCall] = useState(null); // 'audio' or 'video'
@@ -10,10 +11,18 @@ export default function CallsScreen() {
   const [isVideoOff, setIsVideoOff] = useState(false);
   const [cameraError, setCameraError] = useState('');
   const [remoteUsers, setRemoteUsers] = useState([]);
+  const [callLogs, setCallLogs] = useState([]);
   const clientRef = useRef(null);
   const localTracksRef = useRef([]);
   const localVideoRef = useRef(null);
   const { user } = useAuth();
+
+  useEffect(() => {
+    supabase.from('call_logs').select('id, mode, channel, started_at, ended_at').order('started_at', { ascending: false }).then(({ data, error }) => {
+      if (error) setCameraError(error.message);
+      else setCallLogs(data || []);
+    });
+  }, []);
 
   useEffect(() => () => {
     localTracksRef.current.forEach((track) => track.close());
@@ -43,6 +52,7 @@ export default function CallsScreen() {
         : [await AgoraRTC.createMicrophoneAudioTrack()];
       localTracksRef.current = tracks;
       await client.publish(tracks);
+      await supabase.from('call_logs').insert({ caller_id: user.id, channel: 'mychat-general', mode });
       if (mode === 'video' && localVideoRef.current) tracks[1].play(localVideoRef.current);
       setActiveCall(mode);
     } catch (error) {
@@ -57,17 +67,13 @@ export default function CallsScreen() {
   const endCall = async () => {
     localTracksRef.current.forEach((track) => track.close());
     await clientRef.current?.leave();
+    const { data } = await supabase.from('call_logs').select('id').eq('caller_id', user.id).is('ended_at', null).order('started_at', { ascending: false }).limit(1);
+    if (data?.[0]) await supabase.from('call_logs').update({ ended_at: new Date().toISOString() }).eq('id', data[0].id);
     clientRef.current = null;
     localTracksRef.current = [];
     setRemoteUsers([]);
     setActiveCall(null);
   };
-
-  const callLogs = [
-    { id: 1, name: 'Kamal GC', type: 'incoming', mode: 'video', time: 'Today, 09:15 AM', duration: '4 min 12 sec' },
-    { id: 2, name: 'MyChat Support Team', type: 'missed', mode: 'audio', time: 'Yesterday, 04:30 PM', duration: '' },
-    { id: 3, name: 'Dipendra', type: 'outgoing', mode: 'audio', time: 'May 10, 11:00 AM', duration: '12 min 45 sec' },
-  ];
 
   return (
     <div className="p-4 max-w-2xl mx-auto text-white space-y-6">
@@ -99,12 +105,12 @@ export default function CallsScreen() {
                 {log.mode === 'video' ? <Video className="w-5 h-5" /> : <Phone className="w-5 h-5" />}
               </div>
               <div>
-                <h4 className="font-semibold text-sm">{log.name}</h4>
+                <h4 className="font-semibold text-sm">MyChat call</h4>
                 <div className="flex items-center space-x-1.5 text-xs text-slate-400 mt-0.5">
                   {log.type === 'incoming' && <PhoneIncoming className="w-3.5 h-3.5 text-emerald-400" />}
                   {log.type === 'outgoing' && <PhoneOutgoing className="w-3.5 h-3.5 text-indigo-400" />}
                   {log.type === 'missed' && <PhoneMissed className="w-3.5 h-3.5 text-red-400" />}
-                  <span>{log.time} {log.duration && `• ${log.duration}`}</span>
+                  <span>{new Date(log.started_at).toLocaleString()} {log.ended_at ? '• ended' : '• active'}</span>
                 </div>
               </div>
             </div>
