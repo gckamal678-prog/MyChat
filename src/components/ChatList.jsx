@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Search, Plus, Camera, Moon, Sun, UserPlus, X } from 'lucide-react';
+import { Search, Plus, Camera, Moon, Sun, UserPlus, X, Trash2 } from 'lucide-react';
 import { supabase } from '../services/supabase';
 import { useAuth } from '../context/AuthContext';
 
@@ -12,6 +12,8 @@ export default function ChatList({ onSelectChat, darkMode, setDarkMode }) {
   const [friends, setFriends] = useState([]);
   const [friendSearch, setFriendSearch] = useState('');
   const [incoming, setIncoming] = useState([]);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [cameraStream, setCameraStream] = useState(null);
   const { user } = useAuth();
 
   const loadFriends = async () => {
@@ -24,6 +26,10 @@ export default function ChatList({ onSelectChat, darkMode, setDarkMode }) {
   };
 
   const openFriends = async () => { setShowFriends(true); await loadFriends(); };
+  const openCamera = async () => {
+    try { setCameraStream(await navigator.mediaDevices.getUserMedia({ video: true })); setCameraOpen(true); }
+    catch { setError('Camera permission was denied or unavailable.'); }
+  };
   const searchPeople = async () => {
     if (!friendSearch.trim()) { setPeople([]); return; }
     const { data } = await supabase.from('profiles').select('id, display_name, avatar_url').ilike('display_name', `%${friendSearch.trim()}%`).neq('id', user.id).limit(10);
@@ -38,6 +44,12 @@ export default function ChatList({ onSelectChat, darkMode, setDarkMode }) {
     if (updateError) { setError(updateError.message); return; }
     await supabase.from('friendships').upsert([{ user_id: user.id, friend_id: request.sender_id }, { user_id: request.sender_id, friend_id: user.id }]);
     await loadFriends();
+  };
+
+  const deleteChat = async (chat) => {
+    if (!window.confirm(`Delete ${chat.name}? This removes the shared room and its messages.`)) return;
+    const { error: deleteError } = await supabase.from('rooms').delete().eq('id', chat.id);
+    if (deleteError) setError(deleteError.message); else setChats((current) => current.filter((item) => item.id !== chat.id));
   };
 
   useEffect(() => {
@@ -75,7 +87,7 @@ export default function ChatList({ onSelectChat, darkMode, setDarkMode }) {
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-bold">Chats</h1>
         <div className="flex items-center space-x-2">
-          <button className="p-2 bg-slate-900 rounded-xl hover:bg-slate-800 transition">
+          <button onClick={openCamera} aria-label="Open camera" className="p-2 bg-slate-900 rounded-xl hover:bg-slate-800 transition">
             <Camera className="w-5 h-5 text-indigo-400" />
           </button>
           <button onClick={openFriends} aria-label="Add friend" className="p-2 bg-slate-900 rounded-xl hover:bg-slate-800 transition">
@@ -125,6 +137,7 @@ export default function ChatList({ onSelectChat, darkMode, setDarkMode }) {
             </div>
             <div className="text-right flex flex-col items-end space-y-1">
               <span className="text-[10px] text-slate-500">{chat.time}</span>
+              <button onClick={(event) => { event.stopPropagation(); deleteChat(chat); }} aria-label={`Delete ${chat.name}`} className="text-slate-500 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
               {chat.unread > 0 && (
                 <span className="bg-indigo-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
                   {chat.unread}
@@ -135,6 +148,7 @@ export default function ChatList({ onSelectChat, darkMode, setDarkMode }) {
         ))}
       </div>
       {showFriends && <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"><div className="w-full max-w-md bg-slate-900 border border-slate-700 rounded-2xl p-5 space-y-4"><div className="flex justify-between items-center"><h2 className="font-bold">Friends</h2><button onClick={() => setShowFriends(false)}><X /></button></div><div className="flex gap-2"><input value={friendSearch} onChange={(event) => setFriendSearch(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && searchPeople()} placeholder="Search by name" className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm" /><button onClick={searchPeople} className="bg-indigo-600 rounded-xl px-3 text-xs">Search</button></div>{incoming.length > 0 && <div><p className="text-xs text-slate-400 mb-2">Friend requests</p>{incoming.map((request) => <div key={request.id} className="flex justify-between items-center py-2"><span className="text-sm">New request</span><button onClick={() => acceptRequest(request)} className="bg-emerald-600 rounded-lg px-3 py-1 text-xs">Accept</button></div>)}</div>}<div>{friends.length > 0 && <p className="text-xs text-slate-400 mb-2">Your friends</p>}{friends.map((friend) => <div key={friend.id} className="flex items-center gap-2 py-2"><img src={friend.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(friend.display_name)}`} className="w-8 h-8 rounded-full" /><span className="text-sm">{friend.display_name}</span></div>)}</div>{people.map((person) => <div key={person.id} className="flex items-center justify-between py-2"><span className="text-sm">{person.display_name}</span><button onClick={() => sendRequest(person.id)} className="bg-indigo-600 rounded-lg px-3 py-1 text-xs">Add</button></div>)}</div></div>}
+      {cameraOpen && <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"><div className="bg-slate-900 p-4 rounded-2xl"><video autoPlay playsInline ref={(element) => { if (element) element.srcObject = cameraStream; }} className="w-full max-w-md rounded-xl" /><button onClick={() => { cameraStream?.getTracks().forEach((track) => track.stop()); setCameraStream(null); setCameraOpen(false); }} className="w-full mt-3 bg-red-600 rounded-xl py-2 text-sm">Close Camera</button></div></div>}
     </div>
   );
 }

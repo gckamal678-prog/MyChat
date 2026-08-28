@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { User, Shield, Key, Smartphone, Moon, Sun, FileText, X, Bell, Database, Palette, LogOut, ChevronRight } from 'lucide-react';
+import { User, Shield, Key, Smartphone, Moon, Sun, FileText, X, Bell, Database, Palette, LogOut, ChevronRight, Camera } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import StorageSettings from './StorageScreen';
 import { supabase } from '../services/supabase';
+import { uploadToCloudinary } from '../services/cloudinary';
 
 export default function SettingsScreen({ darkMode, setDarkMode }) {
   const { user, signOut } = useAuth();
@@ -14,12 +15,30 @@ export default function SettingsScreen({ darkMode, setDarkMode }) {
   const [editingProfile, setEditingProfile] = useState(false);
   const [profileName, setProfileName] = useState(user?.user_metadata?.full_name || '');
   const [profileMessage, setProfileMessage] = useState('');
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const saveProfile = async () => {
     const name = profileName.trim();
     if (!name) return;
     const { error } = await supabase.auth.updateUser({ data: { full_name: name } });
     if (error) setProfileMessage(error.message);
     else { await supabase.from('profiles').upsert({ id: user.id, display_name: name }, { onConflict: 'id' }); setProfileMessage('Profile updated'); setEditingProfile(false); }
+  };
+
+  const changePhoto = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setUploadingPhoto(true);
+    try {
+      const { secure_url: avatarUrl } = await uploadToCloudinary(file, 'image');
+      const { error } = await supabase.auth.updateUser({ data: { avatar_url: avatarUrl } });
+      if (error) throw error;
+      await supabase.from('profiles').upsert({ id: user.id, display_name: profileName || user.user_metadata?.full_name || 'MyChat User', avatar_url: avatarUrl }, { onConflict: 'id' });
+      setProfileMessage('Profile photo updated');
+    } catch (error) {
+      setProfileMessage(error.message || 'Photo upload failed');
+    } finally {
+      setUploadingPhoto(false);
+    }
   };
 
   return (
@@ -30,16 +49,16 @@ export default function SettingsScreen({ darkMode, setDarkMode }) {
 
       {/* User Profile Section */}
       <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl flex items-center space-x-4">
-        <img 
-          src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces" 
+        <div className="relative"><img
+          src={user?.user_metadata?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.user_metadata?.full_name || 'MyChat')}&background=4f46e5&color=fff`}
           alt="Profile" 
           className="w-16 h-16 rounded-full object-cover border-2 border-indigo-500" 
-        />
+        /><label className="absolute bottom-0 right-0 bg-indigo-600 p-2 rounded-full cursor-pointer"><Camera className="w-4 h-4" /><input type="file" accept="image/*" onChange={changePhoto} className="hidden" /></label></div>
         <div className="flex-1">
           <h3 className="font-bold text-lg">{user?.user_metadata?.full_name || 'MyChat User'}</h3>
           <p className="text-xs text-slate-400">{user?.email}</p>
           {editingProfile && <div className="flex gap-2 mt-2"><input value={profileName} onChange={(event) => setProfileName(event.target.value)} className="bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs" /><button onClick={saveProfile} className="bg-indigo-600 rounded-lg px-2 py-1 text-xs">Save</button></div>}
-          {profileMessage && <p className="text-xs text-emerald-400 mt-1">{profileMessage}</p>}
+          {profileMessage && <p className="text-xs text-emerald-400 mt-1">{uploadingPhoto ? 'Uploading photo...' : profileMessage}</p>}
         </div>
         <button onClick={() => setEditingProfile(!editingProfile)} className="text-xs text-indigo-400">{editingProfile ? 'Cancel' : 'Edit'}</button>
       </div>

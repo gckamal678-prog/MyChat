@@ -65,8 +65,11 @@ drop policy if exists "Users can view their friendships" on public.friendships;
 drop policy if exists "Users can create friendships" on public.friendships;
 drop policy if exists "Authenticated users can view messages" on public.messages;
 drop policy if exists "Users can send their own messages" on public.messages;
+drop policy if exists "Authenticated users can delete rooms" on public.rooms;
 create policy "Authenticated users can view rooms"
   on public.rooms for select to authenticated using (true);
+
+create policy "Authenticated users can delete rooms" on public.rooms for delete to authenticated using (true);
 
 create policy "Authenticated users can view profiles" on public.profiles for select to authenticated using (true);
 create policy "Users can view their friend requests" on public.friend_requests for select to authenticated using (auth.uid() = sender_id or auth.uid() = receiver_id);
@@ -161,6 +164,7 @@ drop policy if exists "Authenticated users can view post likes" on public.post_l
 drop policy if exists "Users can manage their post likes" on public.post_likes;
 drop policy if exists "Authenticated users can view reels" on public.reels;
 drop policy if exists "Users can create their own reels" on public.reels;
+drop policy if exists "Users can delete their own reels" on public.reels;
 drop policy if exists "Authenticated users can view reel comments" on public.reel_comments;
 drop policy if exists "Users can create their own reel comments" on public.reel_comments;
 drop policy if exists "Authenticated users can view reel likes" on public.reel_likes;
@@ -175,6 +179,7 @@ create policy "Authenticated users can view post likes" on public.post_likes for
 create policy "Users can manage their post likes" on public.post_likes for all to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "Authenticated users can view reels" on public.reels for select to authenticated using (true);
 create policy "Users can create their own reels" on public.reels for insert to authenticated with check (auth.uid() = user_id);
+create policy "Users can delete their own reels" on public.reels for delete to authenticated using (auth.uid() = user_id);
 create policy "Authenticated users can view reel comments" on public.reel_comments for select to authenticated using (true);
 create policy "Users can create their own reel comments" on public.reel_comments for insert to authenticated with check (auth.uid() = user_id);
 create policy "Authenticated users can view reel likes" on public.reel_likes for select to authenticated using (true);
