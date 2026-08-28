@@ -19,6 +19,9 @@ export default function SettingsScreen({ darkMode, setDarkMode }) {
   const [keyFingerprint, setKeyFingerprint] = useState(localStorage.getItem('mychat-key-fingerprint') || 'No key generated yet');
   const [sessionInfo, setSessionInfo] = useState('This device');
   const [twoFactor, setTwoFactor] = useState(false);
+  const [twoFactorSetup, setTwoFactorSetup] = useState(null);
+  const [twoFactorCode, setTwoFactorCode] = useState('');
+  const [twoFactorBusy, setTwoFactorBusy] = useState(false);
   const [language, setLanguage] = useState(localStorage.getItem('mychat-language') || 'English');
   const [dataSaver, setDataSaver] = useState(localStorage.getItem('mychat-data-saver') === 'true');
   const saveProfile = async () => {
@@ -50,9 +53,29 @@ export default function SettingsScreen({ darkMode, setDarkMode }) {
   };
 
   const setupTwoFactor = async () => {
+    setTwoFactorBusy(true);
     const { data, error } = await supabase.auth.mfa.listFactors();
-    if (error) setProfileMessage(error.message); else setTwoFactor((data?.totp || []).length > 0);
-    if (!twoFactor) setProfileMessage('Enable TOTP in Supabase Auth to finish 2FA setup.');
+    if (error) setProfileMessage(error.message);
+    else if ((data?.totp || []).some((factor) => factor.status === 'verified')) setTwoFactor(true);
+    else {
+      const { data: enrollment, error: enrollError } = await supabase.auth.mfa.enroll({ factorType: 'totp', friendlyName: 'MyChat Authenticator' });
+      if (enrollError) setProfileMessage(enrollError.message);
+      else setTwoFactorSetup(enrollment);
+    }
+    setTwoFactorBusy(false);
+  };
+
+  const verifyTwoFactor = async () => {
+    if (!twoFactorSetup?.id || !/^\d{6}$/.test(twoFactorCode)) return;
+    setTwoFactorBusy(true);
+    const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({ factorId: twoFactorSetup.id });
+    if (challengeError) setProfileMessage(challengeError.message);
+    else {
+      const { error } = await supabase.auth.mfa.verify({ factorId: twoFactorSetup.id, challengeId: challenge.id, code: twoFactorCode });
+      if (error) setProfileMessage(error.message);
+      else { setTwoFactor(true); setTwoFactorSetup(null); setTwoFactorCode(''); setProfileMessage('Two-factor authentication enabled'); }
+    }
+    setTwoFactorBusy(false);
   };
 
   React.useEffect(() => {
@@ -168,6 +191,7 @@ export default function SettingsScreen({ darkMode, setDarkMode }) {
         <button onClick={signOut} className="w-full p-4 flex items-center gap-3 text-left text-red-400 hover:bg-slate-800/50"><LogOut className="w-5 h-5" /><span className="text-sm font-semibold">Log out</span></button>
       </div>
       {showPolicy && <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"><div className="max-w-md bg-slate-900 border border-slate-700 rounded-2xl p-5 space-y-3"><div className="flex justify-between"><h2 className="font-bold">Privacy Policy</h2><button onClick={() => setShowPolicy(false)}><X /></button></div><p className="text-sm text-slate-300">MyChat stores account and messages in Supabase. Camera and microphone are used only during calls. Uploaded media is stored with the configured provider.</p><p className="text-xs text-slate-500">Copyright 2026 MyChat. All rights reserved. kamalgc.com.np</p></div></div>}
+      {twoFactorSetup && <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"><div className="w-full max-w-md bg-slate-900 border border-slate-700 rounded-2xl p-5 space-y-4"><div className="flex justify-between"><h2 className="font-bold">Set up authenticator</h2><button onClick={() => setTwoFactorSetup(null)}><X /></button></div><p className="text-sm text-slate-300">Scan the QR code in your authenticator app, or copy the setup key.</p><img src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(twoFactorSetup.totp.uri)}`} alt="Authenticator QR code" className="mx-auto rounded-lg bg-white p-2" /><p className="break-all rounded-lg bg-slate-950 p-3 font-mono text-xs text-indigo-300">{twoFactorSetup.totp.secret}</p><input inputMode="numeric" maxLength="6" value={twoFactorCode} onChange={(event) => setTwoFactorCode(event.target.value.replace(/\D/g, ''))} placeholder="6-digit code" className="w-full rounded-xl bg-slate-950 border border-slate-700 p-3 text-sm" /><button disabled={twoFactorBusy || twoFactorCode.length !== 6} onClick={verifyTwoFactor} className="w-full rounded-xl bg-indigo-600 py-3 font-semibold">{twoFactorBusy ? 'Verifying...' : 'Verify and enable'}</button></div></div>}
     </div>
   );
 }
