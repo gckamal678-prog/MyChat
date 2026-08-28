@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ArrowLeft, Send, Mic, Paperclip, Play, Pause, Lock, Smile } from 'lucide-react';
 import { supabase } from '../services/supabase';
 import { useAuth } from '../context/AuthContext';
+import { notifyUser } from '../services/notifications';
 
 export default function ChatWindow({ chat, onBack }) {
   const [messages, setMessages] = useState([]);
@@ -39,7 +40,10 @@ export default function ChatWindow({ chat, onBack }) {
     if (sendError) {
       setError(sendError.message);
       setInputText(content);
+      return;
     }
+    const { data: members } = await supabase.from('room_members').select('user_id').eq('room_id', chat.id).neq('user_id', user.id);
+    await Promise.all((members || []).map((member) => notifyUser(member.user_id, 'New MyChat message', content, `/?room=${chat.id}`)));
   };
 
   const handleAttachment = () => {
