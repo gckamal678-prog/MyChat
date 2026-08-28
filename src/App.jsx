@@ -80,9 +80,9 @@ export default function App() {
       <Navigation activeTab={activeTab} setActiveTab={setActiveTab} />
       
       {/* Main Content Area */}
-      <main className="flex-1 md:ml-64 pb-20 md:pb-0 p-4 md:p-6">
+      <main className={`flex-1 pb-20 md:pb-0 ${activeTab === 'reels' ? 'md:ml-0 p-0' : 'md:ml-64 p-4 md:p-6'}`}>
         <div className="max-w-4xl mx-auto">
-          <header className="flex justify-between items-center mb-6 pb-4 border-b border-slate-800">
+          <header className={`${activeTab === 'reels' ? 'hidden' : 'flex'} justify-between items-center mb-6 pb-4 border-b border-slate-800`}>
             <h1 className="text-xl font-bold capitalize">{activeTab}</h1>
             <span className="text-xs bg-indigo-600/20 text-indigo-400 px-3 py-1 rounded-full border border-indigo-500/30">MyChat</span>
           </header>
@@ -93,7 +93,7 @@ export default function App() {
               <p className="text-indigo-400 text-sm animate-pulse">Loading module...</p>
             </div>
           }>
-            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-4 md:p-6 min-h-[400px] shadow-xl">
+            <div className={`${activeTab === 'reels' ? '' : 'bg-slate-900 border border-slate-800 rounded-3xl p-4 md:p-6 min-h-[400px] shadow-xl'}`}>
               {renderContent()}
             </div>
           </Suspense>
