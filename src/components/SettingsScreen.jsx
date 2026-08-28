@@ -16,6 +16,8 @@ export default function SettingsScreen({ darkMode, setDarkMode }) {
   const [profileName, setProfileName] = useState(user?.user_metadata?.full_name || '');
   const [profileMessage, setProfileMessage] = useState('');
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [keyFingerprint, setKeyFingerprint] = useState(localStorage.getItem('mychat-key-fingerprint') || 'No key generated yet');
+  const [sessionInfo, setSessionInfo] = useState('This device');
   const saveProfile = async () => {
     const name = profileName.trim();
     if (!name) return;
@@ -23,6 +25,32 @@ export default function SettingsScreen({ darkMode, setDarkMode }) {
     if (error) setProfileMessage(error.message);
     else { await supabase.from('profiles').upsert({ id: user.id, display_name: name }, { onConflict: 'id' }); setProfileMessage('Profile updated'); setEditingProfile(false); }
   };
+
+  const generateKey = async () => {
+    const key = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']);
+    const exported = new Uint8Array(await crypto.subtle.exportKey('raw', key));
+    const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', exported));
+    const fingerprint = Array.from(digest, (byte) => byte.toString(16).padStart(2, '0')).join('').slice(0, 32);
+    localStorage.setItem('mychat-key-fingerprint', fingerprint);
+    setKeyFingerprint(fingerprint);
+  };
+
+  const toggleBiometric = (enabled) => {
+    localStorage.setItem('mychat-biometric-enabled', String(enabled));
+    setBiometricEnabled(enabled);
+  };
+
+  const toggleNotifications = async (enabled) => {
+    if (enabled && 'Notification' in window && Notification.permission === 'default') await Notification.requestPermission();
+    setNotifications(enabled);
+    localStorage.setItem('mychat-notifications-enabled', String(enabled));
+  };
+
+  React.useEffect(() => {
+    setNotifications(localStorage.getItem('mychat-notifications-enabled') !== 'false');
+    setBiometricEnabled(localStorage.getItem('mychat-biometric-enabled') !== 'false');
+    supabase.auth.getSession().then(({ data }) => setSessionInfo(data.session ? `Active on this device (${data.session.user.email})` : 'No active session'));
+  }, []);
 
   const changePhoto = async (event) => {
     const file = event.target.files?.[0];
@@ -78,7 +106,7 @@ export default function SettingsScreen({ darkMode, setDarkMode }) {
           <input 
             type="checkbox" 
             checked={biometricEnabled} 
-            onChange={() => setBiometricEnabled(!biometricEnabled)}
+            onChange={(event) => toggleBiometric(event.target.checked)}
             className="w-5 h-5 accent-indigo-600 rounded cursor-pointer" 
           />
         </div>
@@ -102,8 +130,9 @@ export default function SettingsScreen({ darkMode, setDarkMode }) {
           <div className="p-4 bg-slate-950 font-mono text-xs text-indigo-300 space-y-2">
             <p><strong>Public Key Fingerprint:</strong></p>
             <p className="bg-slate-900 p-2 rounded border border-slate-800 text-[10px] break-all">
-              4b825dc642cb6eb9a060e54bf8d69288fbee49043c8d19793f773400d72049d1
+              {keyFingerprint}
             </p>
+            <button onClick={generateKey} className="rounded-lg bg-indigo-600 px-3 py-2 text-xs">Generate new key fingerprint</button>
           </div>
         )}
 
@@ -115,11 +144,11 @@ export default function SettingsScreen({ darkMode, setDarkMode }) {
               <p className="text-xs text-slate-400">Manage connected devices</p>
             </div>
           </div>
-          <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2.5 py-1 rounded-full border border-emerald-500/30">1 Active</span>
+          <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2.5 py-1 rounded-full border border-emerald-500/30">{sessionInfo}</span>
         </div>
         <div className="p-4 flex items-center justify-between">
           <div className="flex items-center space-x-3"><Bell className="w-5 h-5 text-indigo-400" /><div><h4 className="text-sm font-semibold">Notifications</h4><p className="text-xs text-slate-400">Message and call alerts</p></div></div>
-          <input type="checkbox" checked={notifications} onChange={() => setNotifications(!notifications)} className="w-5 h-5 accent-indigo-600 cursor-pointer" />
+          <input type="checkbox" checked={notifications} onChange={(event) => toggleNotifications(event.target.checked)} className="w-5 h-5 accent-indigo-600 cursor-pointer" />
         </div>
         <button onClick={() => setShowStorage(!showStorage)} className="w-full p-4 flex items-center gap-3 text-left hover:bg-slate-800/50"><Database className="w-5 h-5 text-indigo-400" /><span className="text-sm font-semibold">Storage and Data</span><ChevronRight className="w-5 h-5 text-slate-500 ml-auto" /></button>
         {showStorage && <div className="p-4"><StorageSettings /></div>}

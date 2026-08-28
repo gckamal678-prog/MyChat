@@ -19,13 +19,17 @@ export default function App() {
   const [isBiometricVerified, setIsBiometricVerified] = useState(false);
   const [activeTab, setActiveTab] = useState('chats');
   const [selectedChat, setSelectedChat] = useState(null);
-  const [darkMode, setDarkMode] = useState(true);
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('mychat-dark-mode') !== 'false');
   const { user, loading } = useAuth();
 
   useEffect(() => {
     const welcomeTimer = window.setTimeout(() => setShowWelcome(false), 1500);
     return () => window.clearTimeout(welcomeTimer);
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem('mychat-dark-mode', String(darkMode));
+  }, [darkMode]);
 
   if (showWelcome) {
     return (
@@ -49,7 +53,7 @@ export default function App() {
     return <AuthScreen />;
   }
 
-  if (!isBiometricVerified) {
+  if (localStorage.getItem('mychat-biometric-enabled') !== 'false' && !isBiometricVerified) {
     return <BiometricScreen onSuccess={() => setIsBiometricVerified(true)} />;
   }
 
