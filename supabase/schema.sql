@@ -102,7 +102,7 @@ create policy "Authenticated users can view rooms"
   on public.rooms for select to authenticated using (name = 'MyChat General' or exists (select 1 from public.room_members where room_id = rooms.id and user_id = auth.uid()));
 
 create policy "Authenticated users can delete rooms" on public.rooms for delete to authenticated using (true);
-create policy "Authenticated users can create rooms" on public.rooms for insert to authenticated with check (true);
+create policy "Authenticated users can create rooms" on public.rooms for insert to authenticated with check (name = 'MyChat General' or name like '% and %');
 
 create policy "Authenticated users can view profiles" on public.profiles for select to authenticated using (true);
 create policy "Users can view their friend requests" on public.friend_requests for select to authenticated using (auth.uid() = sender_id or auth.uid() = receiver_id);
