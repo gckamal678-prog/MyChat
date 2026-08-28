@@ -19,6 +19,9 @@ where not exists (select 1 from public.rooms);
 alter table public.rooms enable row level security;
 alter table public.messages enable row level security;
 
+drop policy if exists "Authenticated users can view rooms" on public.rooms;
+drop policy if exists "Authenticated users can view messages" on public.messages;
+drop policy if exists "Users can send their own messages" on public.messages;
 create policy "Authenticated users can view rooms"
   on public.rooms for select to authenticated using (true);
 
@@ -100,6 +103,20 @@ alter table public.reel_comments enable row level security;
 alter table public.reel_likes enable row level security;
 alter table public.call_logs enable row level security;
 
+drop policy if exists "Authenticated users can view posts" on public.posts;
+drop policy if exists "Users can create their own posts" on public.posts;
+drop policy if exists "Authenticated users can view post comments" on public.post_comments;
+drop policy if exists "Users can create their own post comments" on public.post_comments;
+drop policy if exists "Authenticated users can view post likes" on public.post_likes;
+drop policy if exists "Users can manage their post likes" on public.post_likes;
+drop policy if exists "Authenticated users can view reels" on public.reels;
+drop policy if exists "Users can create their own reels" on public.reels;
+drop policy if exists "Authenticated users can view reel comments" on public.reel_comments;
+drop policy if exists "Users can create their own reel comments" on public.reel_comments;
+drop policy if exists "Authenticated users can view reel likes" on public.reel_likes;
+drop policy if exists "Users can manage their reel likes" on public.reel_likes;
+drop policy if exists "Users can view their call logs" on public.call_logs;
+drop policy if exists "Users can create their call logs" on public.call_logs;
 create policy "Authenticated users can view posts" on public.posts for select to authenticated using (true);
 create policy "Users can create their own posts" on public.posts for insert to authenticated with check (auth.uid() = user_id);
 create policy "Authenticated users can view post comments" on public.post_comments for select to authenticated using (true);
