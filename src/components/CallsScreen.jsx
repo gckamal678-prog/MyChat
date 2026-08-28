@@ -14,6 +14,7 @@ export default function CallsScreen() {
   const [callLogs, setCallLogs] = useState([]);
   const [search, setSearch] = useState('');
   const [groupCall, setGroupCall] = useState(false);
+  const [incomingInvite, setIncomingInvite] = useState(null);
   const clientRef = useRef(null);
   const localTracksRef = useRef([]);
   const localVideoRef = useRef(null);
@@ -25,6 +26,20 @@ export default function CallsScreen() {
       else setCallLogs(data || []);
     });
   }, []);
+
+  useEffect(() => {
+    const channel = supabase.channel(`call-invites-${user.id}`).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'call_invites', filter: `receiver_id=eq.${user.id}` }, (payload) => {
+      if (payload.new.status === 'ringing') setIncomingInvite(payload.new);
+    }).subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user.id]);
+
+  const updateInvite = async (status) => {
+    if (!incomingInvite) return;
+    await supabase.from('call_invites').update({ status, answered_at: status === 'accepted' ? new Date().toISOString() : null }).eq('id', incomingInvite.id);
+    if (status === 'accepted') startCall(incomingInvite.mode);
+    setIncomingInvite(null);
+  };
 
   useEffect(() => () => {
     localTracksRef.current.forEach((track) => track.close());
@@ -85,6 +100,7 @@ export default function CallsScreen() {
         <div><h1 className="text-2xl font-bold">Calls</h1><p className="text-xs text-slate-400 mt-1">Your recent voice and video calls</p></div>
       </header>
       {cameraError && <p className="text-xs text-red-400">{cameraError}</p>}
+      {incomingInvite && <div className="rounded-2xl border border-indigo-400/40 bg-indigo-950/60 p-4"><p className="text-sm font-semibold">Incoming {incomingInvite.mode} call</p><div className="mt-3 flex gap-2"><button onClick={() => updateInvite('accepted')} className="rounded-xl bg-emerald-600 px-4 py-2 text-xs">Accept</button><button onClick={() => updateInvite('declined')} className="rounded-xl bg-red-600 px-4 py-2 text-xs">Decline</button></div></div>}
 
       <div className="relative"><Search className="absolute left-3 top-3 w-4 h-4 text-slate-500" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search contacts or call history" className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2.5 pl-9 pr-3 text-sm outline-none focus:border-indigo-500" /></div>
 

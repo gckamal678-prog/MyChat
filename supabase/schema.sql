@@ -216,6 +216,18 @@ create table if not exists public.call_logs (
   ended_at timestamptz
 );
 
+create table if not exists public.call_invites (
+  id uuid primary key default gen_random_uuid(),
+  caller_id uuid not null references auth.users(id) on delete cascade,
+  receiver_id uuid not null references auth.users(id) on delete cascade,
+  channel text not null,
+  mode text not null check (mode in ('audio', 'video')),
+  status text not null default 'ringing' check (status in ('ringing', 'accepted', 'declined', 'ended')),
+  created_at timestamptz not null default now(),
+  answered_at timestamptz,
+  ended_at timestamptz
+);
+
 alter table public.posts enable row level security;
 alter table public.post_comments enable row level security;
 alter table public.post_likes enable row level security;
@@ -223,6 +235,7 @@ alter table public.reels enable row level security;
 alter table public.reel_comments enable row level security;
 alter table public.reel_likes enable row level security;
 alter table public.call_logs enable row level security;
+alter table public.call_invites enable row level security;
 
 drop policy if exists "Authenticated users can view posts" on public.posts;
 drop policy if exists "Users can create their own posts" on public.posts;
@@ -240,6 +253,9 @@ drop policy if exists "Authenticated users can view reel likes" on public.reel_l
 drop policy if exists "Users can manage their reel likes" on public.reel_likes;
 drop policy if exists "Users can view their call logs" on public.call_logs;
 drop policy if exists "Users can create their call logs" on public.call_logs;
+drop policy if exists "Users can view their call invites" on public.call_invites;
+drop policy if exists "Users can create call invites" on public.call_invites;
+drop policy if exists "Receivers can update call invites" on public.call_invites;
 create policy "Authenticated users can view posts" on public.posts for select to authenticated using (true);
 create policy "Users can create their own posts" on public.posts for insert to authenticated with check (auth.uid() = user_id);
 create policy "Users can delete their own posts" on public.posts for delete to authenticated using (auth.uid() = user_id);
@@ -256,6 +272,9 @@ create policy "Authenticated users can view reel likes" on public.reel_likes for
 create policy "Users can manage their reel likes" on public.reel_likes for all to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "Users can view their call logs" on public.call_logs for select to authenticated using (auth.uid() = caller_id);
 create policy "Users can create their call logs" on public.call_logs for insert to authenticated with check (auth.uid() = caller_id);
+create policy "Users can view their call invites" on public.call_invites for select to authenticated using (auth.uid() = caller_id or auth.uid() = receiver_id);
+create policy "Users can create call invites" on public.call_invites for insert to authenticated with check (auth.uid() = caller_id and caller_id <> receiver_id);
+create policy "Receivers can update call invites" on public.call_invites for update to authenticated using (auth.uid() = receiver_id or auth.uid() = caller_id) with check (auth.uid() = receiver_id or auth.uid() = caller_id);
 
 do $$
 begin
@@ -279,5 +298,8 @@ begin
   end if;
   if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'call_logs') then
     alter publication supabase_realtime add table public.call_logs;
+  end if;
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'call_invites') then
+    alter publication supabase_realtime add table public.call_invites;
   end if;
 end $$;
