@@ -54,12 +54,29 @@ create table if not exists public.messages (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.room_members (
+  room_id uuid not null references public.rooms(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  joined_at timestamptz not null default now(),
+  primary key (room_id, user_id)
+);
+
+create table if not exists public.push_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  endpoint text not null unique,
+  subscription jsonb not null,
+  created_at timestamptz not null default now()
+);
+
 insert into public.rooms (name)
 select 'MyChat General'
 where not exists (select 1 from public.rooms);
 
 alter table public.rooms enable row level security;
 alter table public.messages enable row level security;
+alter table public.room_members enable row level security;
+alter table public.push_subscriptions enable row level security;
 alter table public.profiles enable row level security;
 alter table public.friend_requests enable row level security;
 alter table public.friendships enable row level security;
@@ -76,11 +93,16 @@ drop policy if exists "Users can view follows" on public.follows;
 drop policy if exists "Users can manage their follows" on public.follows;
 drop policy if exists "Authenticated users can view messages" on public.messages;
 drop policy if exists "Users can send their own messages" on public.messages;
+drop policy if exists "Users can view their room memberships" on public.room_members;
+drop policy if exists "Users can create room memberships" on public.room_members;
+drop policy if exists "Users can manage their push subscriptions" on public.push_subscriptions;
 drop policy if exists "Authenticated users can delete rooms" on public.rooms;
+drop policy if exists "Authenticated users can create rooms" on public.rooms;
 create policy "Authenticated users can view rooms"
-  on public.rooms for select to authenticated using (true);
+  on public.rooms for select to authenticated using (name = 'MyChat General' or exists (select 1 from public.room_members where room_id = rooms.id and user_id = auth.uid()));
 
 create policy "Authenticated users can delete rooms" on public.rooms for delete to authenticated using (true);
+create policy "Authenticated users can create rooms" on public.rooms for insert to authenticated with check (true);
 
 create policy "Authenticated users can view profiles" on public.profiles for select to authenticated using (true);
 create policy "Users can view their friend requests" on public.friend_requests for select to authenticated using (auth.uid() = sender_id or auth.uid() = receiver_id);
@@ -92,10 +114,13 @@ create policy "Users can view follows" on public.follows for select to authentic
 create policy "Users can manage their follows" on public.follows for all to authenticated using (auth.uid() = follower_id) with check (auth.uid() = follower_id and follower_id <> following_id);
 
 create policy "Authenticated users can view messages"
-  on public.messages for select to authenticated using (true);
+  on public.messages for select to authenticated using (exists (select 1 from public.rooms where rooms.id = messages.room_id and (rooms.name = 'MyChat General' or exists (select 1 from public.room_members where room_id = rooms.id and user_id = auth.uid()))));
 
 create policy "Users can send their own messages"
-  on public.messages for insert to authenticated with check (auth.uid() = user_id);
+  on public.messages for insert to authenticated with check (auth.uid() = user_id and exists (select 1 from public.rooms where rooms.id = messages.room_id and (rooms.name = 'MyChat General' or exists (select 1 from public.room_members where room_id = rooms.id and user_id = auth.uid()))));
+create policy "Users can view their room memberships" on public.room_members for select to authenticated using (auth.uid() = user_id);
+create policy "Users can create room memberships" on public.room_members for insert to authenticated with check (auth.uid() = user_id);
+create policy "Users can manage their push subscriptions" on public.push_subscriptions for all to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 alter table public.messages replica identity full;
 

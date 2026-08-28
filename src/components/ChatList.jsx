@@ -46,6 +46,16 @@ export default function ChatList({ onSelectChat, darkMode, setDarkMode }) {
     await loadFriends();
   };
 
+  const openFriendChat = async (friend) => {
+    const roomName = `${user.user_metadata?.full_name || user.email} and ${friend.display_name}`;
+    const { data: room, error: roomError } = await supabase.from('rooms').insert({ name: roomName }).select('id, name, created_at').single();
+    if (roomError) { setError(roomError.message); return; }
+    const { error: memberError } = await supabase.from('room_members').insert([{ room_id: room.id, user_id: user.id }, { room_id: room.id, user_id: friend.id }]);
+    if (memberError) { setError(memberError.message); return; }
+    setShowFriends(false);
+    onSelectChat({ ...room, avatar: friend.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(friend.display_name)}`, lastMessage: '', time: '', unread: 0, online: true });
+  };
+
   const deleteChat = async (chat) => {
     if (!window.confirm(`Delete ${chat.name}? This removes the shared room and its messages.`)) return;
     const { error: deleteError } = await supabase.from('rooms').delete().eq('id', chat.id);
@@ -147,6 +157,7 @@ export default function ChatList({ onSelectChat, darkMode, setDarkMode }) {
           </div>
         ))}
       </div>
+      {friends.length > 0 && <div className="mt-4 border-t border-slate-800 pt-3"><p className="mb-2 text-xs text-slate-400">Your friends</p>{friends.map((friend) => <button key={friend.id} onClick={() => openFriendChat(friend)} className="flex w-full items-center gap-3 rounded-xl p-2 text-left hover:bg-slate-900"><img src={friend.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(friend.display_name)}`} className="h-9 w-9 rounded-full" /><span className="text-sm">Chat with {friend.display_name}</span></button>)}</div>}
       {showFriends && <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"><div className="w-full max-w-md bg-slate-900 border border-slate-700 rounded-2xl p-5 space-y-4"><div className="flex justify-between items-center"><h2 className="font-bold">Friends</h2><button onClick={() => setShowFriends(false)}><X /></button></div><div className="flex gap-2"><input value={friendSearch} onChange={(event) => setFriendSearch(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && searchPeople()} placeholder="Search by name" className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm" /><button onClick={searchPeople} className="bg-indigo-600 rounded-xl px-3 text-xs">Search</button></div>{incoming.length > 0 && <div><p className="text-xs text-slate-400 mb-2">Friend requests</p>{incoming.map((request) => <div key={request.id} className="flex justify-between items-center py-2"><span className="text-sm">New request</span><button onClick={() => acceptRequest(request)} className="bg-emerald-600 rounded-lg px-3 py-1 text-xs">Accept</button></div>)}</div>}<div>{friends.length > 0 && <p className="text-xs text-slate-400 mb-2">Your friends</p>}{friends.map((friend) => <div key={friend.id} className="flex items-center gap-2 py-2"><img src={friend.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(friend.display_name)}`} className="w-8 h-8 rounded-full" /><span className="text-sm">{friend.display_name}</span></div>)}</div>{people.map((person) => <div key={person.id} className="flex items-center justify-between py-2"><span className="text-sm">{person.display_name}</span><button onClick={() => sendRequest(person.id)} className="bg-indigo-600 rounded-lg px-3 py-1 text-xs">Add</button></div>)}</div></div>}
       {cameraOpen && <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"><div className="bg-slate-900 p-4 rounded-2xl"><video autoPlay playsInline ref={(element) => { if (element) element.srcObject = cameraStream; }} className="w-full max-w-md rounded-xl" /><button onClick={() => { cameraStream?.getTracks().forEach((track) => track.stop()); setCameraStream(null); setCameraOpen(false); }} className="w-full mt-3 bg-red-600 rounded-xl py-2 text-sm">Close Camera</button></div></div>}
     </div>
