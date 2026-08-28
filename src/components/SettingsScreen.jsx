@@ -48,6 +48,11 @@ export default function SettingsScreen({ darkMode, setDarkMode }) {
 
   const toggleNotifications = async (enabled) => {
     if (enabled && 'Notification' in window && Notification.permission === 'default') await Notification.requestPermission();
+    if (enabled && Notification.permission === 'granted' && 'serviceWorker' in navigator && import.meta.env.VITE_VAPID_PUBLIC_KEY) {
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: Uint8Array.from(atob(import.meta.env.VITE_VAPID_PUBLIC_KEY.replace(/-/g, '+').replace(/_/g, '/')), (character) => character.charCodeAt(0)) });
+      await supabase.from('push_subscriptions').upsert({ user_id: user.id, endpoint: subscription.endpoint, subscription: subscription.toJSON() }, { onConflict: 'endpoint' });
+    }
     setNotifications(enabled);
     localStorage.setItem('mychat-notifications-enabled', String(enabled));
   };

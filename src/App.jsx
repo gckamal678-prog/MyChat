@@ -4,8 +4,10 @@ import Navigation from './components/Navigation';
 import InstallPrompt from './components/InstallPrompt';
 import ChatWindow from './components/ChatWindow';
 import BiometricScreen from './components/BiometricScreen';
+import MfaScreen from './components/MfaScreen';
 import { ShieldCheck } from 'lucide-react';
 import { useAuth } from './context/AuthContext';
+import { supabase } from './services/supabase';
 
 // Lazy loading for performance optimization
 const ChatList = lazy(() => import('./components/ChatList'));
@@ -17,6 +19,8 @@ const SettingsScreen = lazy(() => import('./components/SettingsScreen'));
 export default function App() {
   const [showWelcome, setShowWelcome] = useState(true);
   const [isBiometricVerified, setIsBiometricVerified] = useState(false);
+  const [mfaFactor, setMfaFactor] = useState(null);
+  const [isMfaVerified, setIsMfaVerified] = useState(false);
   const [activeTab, setActiveTab] = useState('chats');
   const [selectedChat, setSelectedChat] = useState(null);
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('mychat-dark-mode') !== 'false');
@@ -30,6 +34,15 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('mychat-dark-mode', String(darkMode));
   }, [darkMode]);
+
+  useEffect(() => {
+    if (!user) return;
+    supabase.auth.getAuthenticatorAssuranceLevel().then(async ({ data }) => {
+      if (data?.currentLevel === 'aal2') { setIsMfaVerified(true); return; }
+      const { data: factors } = await supabase.auth.mfa.listFactors();
+      setMfaFactor(factors?.totp?.find((factor) => factor.status === 'verified') || null);
+    });
+  }, [user]);
 
   if (showWelcome) {
     return (
@@ -52,6 +65,8 @@ export default function App() {
   if (!user) {
     return <AuthScreen />;
   }
+
+  if (mfaFactor && !isMfaVerified) return <MfaScreen factor={mfaFactor} onVerified={() => setIsMfaVerified(true)} />;
 
   if (localStorage.getItem('mychat-biometric-enabled') !== 'false' && !isBiometricVerified) {
     return <BiometricScreen onSuccess={() => setIsBiometricVerified(true)} />;
