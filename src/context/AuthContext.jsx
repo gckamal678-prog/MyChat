@@ -33,10 +33,10 @@ export function AuthProvider({ children }) {
 	}, []);
 
 	const signIn = (email, password) => supabase?.auth.signInWithPassword({ email, password });
-	const signUp = (email, password, metadata) => supabase?.auth.signUp({
+	const signUp = (email, password, metadata, redirectTo) => supabase?.auth.signUp({
 		email,
 		password,
-		options: { data: metadata },
+		options: { data: metadata, emailRedirectTo: redirectTo },
 	});
 	const signOut = () => supabase?.auth.signOut();
 

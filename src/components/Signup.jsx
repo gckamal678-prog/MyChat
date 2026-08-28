@@ -34,7 +34,7 @@ export default function AuthScreen() {
 
     setSubmitting(true);
     const result = isSignup
-      ? await signUp(email, password, { full_name: fullName })
+      ? await signUp(email, password, { full_name: fullName }, window.location.origin)
       : await signIn(email, password);
     setSubmitting(false);
 

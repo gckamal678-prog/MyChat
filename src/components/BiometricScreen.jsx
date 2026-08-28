@@ -9,26 +9,38 @@ export default function BiometricScreen({ onSuccess }) {
     setLoading(true);
     setError('');
     try {
-      if (window.PublicKeyCredential) {
-        // WebAuthn Simulation Check
-        const available = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
-        if (available) {
-          // Simulated successful biometric trigger
-          setTimeout(() => {
-            setLoading(false);
-            onSuccess();
-          }, 1500);
-          return;
-        }
+      if (!window.PublicKeyCredential || !navigator.credentials) {
+        throw new Error('This device or browser does not support biometric unlock.');
       }
-      // Fallback simulation if hardware not present
-      setTimeout(() => {
-        setLoading(false);
-        onSuccess();
-      }, 1500);
+      const available = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+      if (!available) throw new Error('No fingerprint or Face ID authenticator is available.');
+
+      const storedCredential = localStorage.getItem('mychat-biometric-credential');
+      if (!storedCredential) {
+        const credential = await navigator.credentials.create({ publicKey: {
+          challenge: crypto.getRandomValues(new Uint8Array(32)),
+          rp: { name: 'MyChat' },
+          user: { id: crypto.getRandomValues(new Uint8Array(16)), name: 'mychat-user', displayName: 'MyChat user' },
+          pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
+          authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required' },
+          timeout: 60000,
+        }});
+        if (!credential) throw new Error('Biometric registration was cancelled.');
+        localStorage.setItem('mychat-biometric-credential', credential.id);
+      } else {
+        const encodedId = Uint8Array.from(atob(storedCredential.replace(/-/g, '+').replace(/_/g, '/')), (character) => character.charCodeAt(0));
+        await navigator.credentials.get({ publicKey: {
+          challenge: crypto.getRandomValues(new Uint8Array(32)),
+          allowCredentials: [{ type: 'public-key', id: encodedId }],
+          userVerification: 'required',
+          timeout: 60000,
+        }});
+      }
+      setLoading(false);
+      onSuccess();
     } catch (err) {
       setLoading(false);
-      setError('Biometric authentication failed. Try again.');
+      setError(err.message || 'Biometric authentication failed. Try again.');
     }
   };
 
