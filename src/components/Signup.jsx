@@ -55,7 +55,7 @@ export default function AuthScreen() {
           <h2 className="text-2xl font-bold text-white">
             {isSignup ? 'Create Account' : 'Welcome Back'}
           </h2>
-          <p className="text-sm text-slate-400 mt-1">Connect securely with MyChat PWA</p>
+          <p className="text-sm text-slate-400 mt-1">Connect securely with MyChat</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">

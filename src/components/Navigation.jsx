@@ -16,7 +16,7 @@ export default function Navigation({ activeTab, setActiveTab }) {
       <aside className="hidden md:flex flex-col w-64 bg-slate-900 border-r border-slate-800 p-4 fixed h-full z-40">
         <div className="flex items-center space-x-3 px-3 py-4 mb-6">
           <div className="bg-indigo-600 p-2 rounded-xl text-white font-bold">MC</div>
-          <span className="text-lg font-bold text-white tracking-wider">MyChat PWA</span>
+          <span className="text-lg font-bold text-white tracking-wider">MyChat</span>
         </div>
         <nav className="space-y-1">
           {tabs.map((tab) => {

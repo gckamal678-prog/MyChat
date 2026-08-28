@@ -35,7 +35,7 @@ export default function InstallPrompt() {
           <Download className="w-6 h-6 text-white" />
         </div>
         <div>
-          <h4 className="font-semibold text-sm">Install MyChat PWA</h4>
+          <h4 className="font-semibold text-sm">Install MyChat</h4>
           <p className="text-xs text-slate-400">Add to home screen for fast access & offline mode.</p>
         </div>
       </div>

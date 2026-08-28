@@ -65,7 +65,7 @@ export default function CallsScreen() {
 
   const callLogs = [
     { id: 1, name: 'Kamal GC', type: 'incoming', mode: 'video', time: 'Today, 09:15 AM', duration: '4 min 12 sec' },
-    { id: 2, name: 'PWA Support Team', type: 'missed', mode: 'audio', time: 'Yesterday, 04:30 PM', duration: '' },
+    { id: 2, name: 'MyChat Support Team', type: 'missed', mode: 'audio', time: 'Yesterday, 04:30 PM', duration: '' },
     { id: 3, name: 'Dipendra', type: 'outgoing', mode: 'audio', time: 'May 10, 11:00 AM', duration: '12 min 45 sec' },
   ];
 

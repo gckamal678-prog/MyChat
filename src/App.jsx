@@ -84,7 +84,7 @@ export default function App() {
         <div className="max-w-4xl mx-auto">
           <header className="flex justify-between items-center mb-6 pb-4 border-b border-slate-800">
             <h1 className="text-xl font-bold capitalize">{activeTab}</h1>
-            <span className="text-xs bg-indigo-600/20 text-indigo-400 px-3 py-1 rounded-full border border-indigo-500/30">Online PWA</span>
+            <span className="text-xs bg-indigo-600/20 text-indigo-400 px-3 py-1 rounded-full border border-indigo-500/30">MyChat</span>
           </header>
 
           {/* Suspense handles loading state when switching tabs */}

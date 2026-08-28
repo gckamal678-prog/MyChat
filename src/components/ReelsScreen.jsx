@@ -7,7 +7,7 @@ export default function Reels() {
       id: 1,
       author: 'Kamal GC',
       avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces',
-      caption: 'Building a high-performance PWA with Vite and React! 🚀 #PWA #React',
+      caption: 'Building with MyChat. #React',
       videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-coder-working-on-his-laptop-in-a-office-43088-large.mp4',
       likes: 1240,
       comments: 89,
@@ -17,7 +17,7 @@ export default function Reels() {
     },
     {
       id: 2,
-      author: 'PWA Tech',
+      author: 'MyChat Tech',
       avatar: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=100&h=100&fit=crop&crop=faces',
       caption: 'Smooth vertical scrolling and offline support using Service Workers.',
       videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-hands-of-a-woman-working-on-a-laptop-43086-large.mp4',

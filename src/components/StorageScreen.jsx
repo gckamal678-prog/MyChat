@@ -20,7 +20,7 @@ export default function StorageSettings() {
       {/* Storage Breakdown Card */}
       <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl space-y-4">
         <div className="flex justify-between items-center text-sm">
-          <span className="text-slate-400">Offline PWA Cache Usage</span>
+          <span className="text-slate-400">Offline Cache Usage</span>
           <span className="font-bold text-indigo-400">45.2 MB / 500 MB</span>
         </div>
 

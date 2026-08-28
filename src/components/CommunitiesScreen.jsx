@@ -5,11 +5,11 @@ export default function Communities() {
   const [posts, setPosts] = useState([
     {
       id: 1,
-      community: 'React & Vite PWA Developers',
+      community: 'MyChat Developers',
       author: 'Kamal GC',
       avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces',
       time: '2h ago',
-      content: 'हामीले MyChat PWA मा भर्खरै अडियो/भिडियो कल र कम्युनिटी फिचर थपेका छौं! एकदम फास्ट र स्मूथ चलिरहेको छ। 🚀',
+      content: 'MyChat मा अडियो/भिडियो कल र कम्युनिटी फिचर उपलब्ध छन्।',
       likes: 24,
       comments: 5,
     }
@@ -23,7 +23,7 @@ export default function Communities() {
     setPosts([
       {
         id: Date.now(),
-        community: 'React & Vite PWA Developers',
+        community: 'MyChat Developers',
         author: 'Kamal GC',
         avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces',
         time: 'Just now',
