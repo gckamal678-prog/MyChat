@@ -5,6 +5,18 @@ export default function BiometricScreen({ onSuccess }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Helper to safely convert base64url to Uint8Array with proper padding
+  const base64UrlToUint8Array = (base64UrlString) => {
+    const padding = '='.repeat((4 - (base64UrlString.length % 4)) % 4);
+    const base64 = (base64UrlString + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+  };
+
   const handleBiometricAuth = async () => {
     setLoading(true);
     setError('');
@@ -16,6 +28,7 @@ export default function BiometricScreen({ onSuccess }) {
       if (!available) throw new Error('No fingerprint or Face ID authenticator is available.');
 
       const storedCredential = localStorage.getItem('mychat-biometric-credential');
+      
       if (!storedCredential) {
         const credential = await navigator.credentials.create({ publicKey: {
           challenge: crypto.getRandomValues(new Uint8Array(32)),
@@ -28,13 +41,19 @@ export default function BiometricScreen({ onSuccess }) {
         if (!credential) throw new Error('Biometric registration was cancelled.');
         localStorage.setItem('mychat-biometric-credential', credential.id);
       } else {
-        const encodedId = Uint8Array.from(atob(storedCredential.replace(/-/g, '+').replace(/_/g, '/')), (character) => character.charCodeAt(0));
-        await navigator.credentials.get({ publicKey: {
-          challenge: crypto.getRandomValues(new Uint8Array(32)),
-          allowCredentials: [{ type: 'public-key', id: encodedId }],
-          userVerification: 'required',
-          timeout: 60000,
-        }});
+        try {
+          const encodedId = base64UrlToUint8Array(storedCredential);
+          await navigator.credentials.get({ publicKey: {
+            challenge: crypto.getRandomValues(new Uint8Array(32)),
+            allowCredentials: [{ type: 'public-key', id: encodedId }],
+            userVerification: 'required',
+            timeout: 60000,
+          }});
+        } catch (err) {
+          // Clear invalid stored credential so next attempt can re-register or fresh-start
+          localStorage.removeItem('mychat-biometric-credential');
+          throw new Error('Biometric session expired or was reset. Please verify again.');
+        }
       }
       setLoading(false);
       onSuccess();
