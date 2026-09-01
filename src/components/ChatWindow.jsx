@@ -3,6 +3,7 @@ import { ArrowLeft, Send, Mic, Paperclip, Play, Pause, Lock, Smile } from 'lucid
 import { supabase } from '../services/supabase';
 import { useAuth } from '../context/AuthContext';
 import { notifyUser } from '../services/notifications';
+import { decryptMessage, encryptMessage, ensureE2EEIdentity } from '../services/e2ee';
 
 export default function ChatWindow({ chat, onBack }) {
   const [messages, setMessages] = useState([]);
@@ -22,12 +23,12 @@ export default function ChatWindow({ chat, onBack }) {
         .order('created_at', { ascending: true });
       if (!active) return;
       if (messagesError) setError(messagesError.message);
-      else setMessages((data ?? []).map((message) => ({ ...message, sender: message.user_id === user.id ? 'me' : 'them', text: message.content, type: 'text', time: new Date(message.created_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) })));
+      else setMessages(await Promise.all((data ?? []).map(async (message) => ({ ...message, sender: message.user_id === user.id ? 'me' : 'them', text: await decryptMessage(user.id, message), type: 'text', time: new Date(message.created_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) }))));
     };
     loadMessages();
     const channel = supabase.channel(`room-${chat.id}`).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `room_id=eq.${chat.id}` }, (payload) => {
       const message = payload.new;
-      setMessages((current) => current.some((item) => item.id === message.id) ? current : [...current, { ...message, sender: message.user_id === user.id ? 'me' : 'them', text: message.content, type: 'text', time: new Date(message.created_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) }]);
+      decryptMessage(user.id, message).then((text) => setMessages((current) => current.some((item) => item.id === message.id) ? current : [...current, { ...message, sender: message.user_id === user.id ? 'me' : 'them', text, type: 'text', time: new Date(message.created_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) }]));
     }).subscribe();
     return () => { active = false; supabase.removeChannel(channel); };
   }, [chat.id, user.id]);
@@ -36,13 +37,17 @@ export default function ChatWindow({ chat, onBack }) {
     if (!inputText.trim()) return;
     const content = inputText.trim();
     setInputText('');
-    const { error: sendError } = await supabase.from('messages').insert({ room_id: chat.id, user_id: user.id, content });
+    const { data: members } = await supabase.from('room_members').select('user_id').eq('room_id', chat.id).neq('user_id', user.id);
+    const recipientId = members?.[0]?.user_id || user.id;
+    const { data: recipient } = await supabase.from('user_keys').select('public_key').eq('user_id', recipientId).maybeSingle();
+    if (!recipient?.public_key) { setError('The recipient has not opened an encrypted session yet.'); setInputText(content); return; }
+    const encrypted = await encryptMessage(user.id, content, recipient.public_key);
+    const { error: sendError } = await supabase.from('messages').insert({ room_id: chat.id, user_id: user.id, content: null, ...encrypted });
     if (sendError) {
       setError(sendError.message);
       setInputText(content);
       return;
     }
-    const { data: members } = await supabase.from('room_members').select('user_id').eq('room_id', chat.id).neq('user_id', user.id);
     await Promise.all((members || []).map((member) => notifyUser(member.user_id, 'New MyChat message', content, `/?room=${chat.id}`)));
   };
 

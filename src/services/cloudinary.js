@@ -20,3 +20,14 @@ export async function uploadToCloudinary(file, resourceType = 'auto') {
   if (!response.ok) throw new Error('Cloudinary upload failed.');
   return response.json();
 }
+
+export async function deleteFromCloudinary(publicId, resourceType = 'image') {
+  const deleteUrl = import.meta.env.VITE_CLOUDINARY_DELETE_URL;
+  if (!publicId || !deleteUrl) return;
+  const response = await fetch(deleteUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ publicId, resourceType }),
+  });
+  if (!response.ok) throw new Error('Cloudinary cleanup failed.');
+}
