@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Fingerprint } from 'lucide-react';
 
-export default function BiometricScreen({ onSuccess }) {
+export default function BiometricScreen({ onSuccess, onSkip }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -83,6 +83,13 @@ export default function BiometricScreen({ onSuccess }) {
           className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3 rounded-xl transition text-sm"
         >
           {loading ? 'Authenticating...' : 'Verify Identity'}
+        </button>
+        <button
+          onClick={onSkip}
+          disabled={loading}
+          className="mt-3 w-full py-2 text-xs text-slate-400 hover:text-white transition disabled:opacity-50"
+        >
+          Use password instead
         </button>
       </div>
     </div>
