@@ -39,7 +39,7 @@ export default function App() {
 
   useEffect(() => {
     if (!user) return;
-    supabase.auth.getAuthenticatorAssuranceLevel().then(async ({ data }) => {
+    supabase.auth.mfa.getAuthenticatorAssuranceLevel().then(async ({ data }) => {
       if (data?.currentLevel === 'aal2') { setIsMfaVerified(true); return; }
       const { data: factors } = await supabase.auth.mfa.listFactors();
       setMfaFactor(factors?.totp?.find((factor) => factor.status === 'verified') || null);
