@@ -8,6 +8,7 @@ import MfaScreen from './components/MfaScreen';
 import { ShieldCheck } from 'lucide-react';
 import { useAuth } from './context/AuthContext';
 import { supabase } from './services/supabase';
+import PrivacyPolicy from './components/PrivacyPolicy';
 
 // Lazy loading for performance optimization
 const ChatList = lazy(() => import('./components/ChatList'));
@@ -17,6 +18,7 @@ const Reels = lazy(() => import('./components/ReelsScreen'));
 const SettingsScreen = lazy(() => import('./components/SettingsScreen'));
 
 export default function App() {
+  if (window.location.pathname === '/privacy-policy') return <PrivacyPolicy />;
   const [showWelcome, setShowWelcome] = useState(true);
   const [isBiometricVerified, setIsBiometricVerified] = useState(false);
   const [mfaFactor, setMfaFactor] = useState(null);

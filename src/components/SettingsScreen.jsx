@@ -29,9 +29,7 @@ export default function SettingsScreen({ darkMode, setDarkMode }) {
   const [showBlockedUsers, setShowBlockedUsers] = useState(false);
   const [blockedUsers, setBlockedUsers] = useState([]);
   const [showLinkedDevices, setShowLinkedDevices] = useState(false);
-  const [linkedDevices, setLinkedDevices] = useState([
-    { id: '1', name: 'Current Browser (This Device)', active: true, lastActive: 'Just now' }
-  ]);
+  const [linkedDevices, setLinkedDevices] = useState([]);
   const [showAbout, setShowAbout] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmationText, setDeleteConfirmationText] = useState('');
@@ -100,7 +98,15 @@ export default function SettingsScreen({ darkMode, setDarkMode }) {
   React.useEffect(() => {
     setNotifications(localStorage.getItem('mychat-notifications-enabled') !== 'false');
     setBiometricEnabled(localStorage.getItem('mychat-biometric-enabled') !== 'false');
-    supabase.auth.getSession().then(({ data }) => setSessionInfo(data.session ? `Active on this device (${data.session.user.email})` : 'No active session'));
+    supabase.auth.getSession().then(async ({ data }) => {
+      setSessionInfo(data.session ? `Active on this device (${data.session.user.email})` : 'No active session');
+      if (data.session && user?.id) {
+        const deviceName = `${navigator.platform || 'Browser'} (${navigator.userAgent.includes('Mobile') ? 'Mobile' : 'Desktop'})`;
+        await supabase.from('device_sessions').upsert({ user_id: user.id, device_name: deviceName, last_seen_at: new Date().toISOString() }, { onConflict: 'user_id,device_name' });
+        const { data: sessions } = await supabase.from('device_sessions').select('id, device_name, last_seen_at, revoked_at').eq('user_id', user.id).is('revoked_at', null).order('last_seen_at', { ascending: false });
+        setLinkedDevices(sessions || []);
+      }
+    });
     
     // Fetch blocked users if table exists
     const fetchBlockedUsers = async () => {
@@ -115,6 +121,17 @@ export default function SettingsScreen({ darkMode, setDarkMode }) {
     };
     fetchBlockedUsers();
   }, [user]);
+
+  const signOutOtherDevices = async () => {
+    const currentName = `${navigator.platform || 'Browser'} (${navigator.userAgent.includes('Mobile') ? 'Mobile' : 'Desktop'})`;
+    const { error } = await supabase.from('device_sessions').update({ revoked_at: new Date().toISOString() }).eq('user_id', user.id).neq('device_name', currentName).is('revoked_at', null);
+    if (error) setProfileMessage(error.message);
+    else {
+      await supabase.auth.signOut({ scope: 'others' });
+      setLinkedDevices((current) => current.filter((device) => device.device_name === currentName));
+      setProfileMessage('All other device sessions signed out');
+    }
+  };
 
   const unblockUser = async (blockId) => {
     const { error } = await supabase.from('blocked_users').delete().eq('id', blockId);
@@ -307,16 +324,16 @@ export default function SettingsScreen({ darkMode, setDarkMode }) {
               <div key={device.id} className="flex items-center justify-between bg-slate-900 p-3 rounded-xl border border-slate-800">
                 <div>
                   <p className="text-xs font-semibold text-white">{device.name}</p>
-                  <p className="text-[10px] text-emerald-400">{device.lastActive}</p>
+                  <p className="text-[10px] text-emerald-400">{new Date(device.last_seen_at).toLocaleString()}</p>
                 </div>
                 <span className="text-xs bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded border border-indigo-500/30">Active</span>
               </div>
             ))}
             <button 
-              onClick={() => alert('Link new device feature integration ready via QR code scan.')}
+              onClick={signOutOtherDevices}
               className="w-full mt-2 bg-indigo-600 hover:bg-indigo-500 text-xs py-2 rounded-xl font-semibold transition"
             >
-              Link New Device
+              Sign Out All Other Devices
             </button>
           </div>
         )}
@@ -393,7 +410,7 @@ export default function SettingsScreen({ darkMode, setDarkMode }) {
         <button onClick={() => setShowPolicy(true)} className="w-full p-4 flex items-center gap-3 text-left hover:bg-slate-800/50 transition">
           <FileText className="w-5 h-5 text-indigo-400" />
           <span className="text-sm font-semibold">Privacy Policy</span>
-          <span className="text-xs text-indigo-400 ml-auto underline">kamalgc.com.np/privacy-policy</span>
+          <a href="/privacy-policy" onClick={(event) => event.stopPropagation()} className="text-xs text-indigo-400 ml-auto underline">kamalgc.com.np/privacy-policy</a>
         </button>
 
         {/* 5. App Version & About Us */}

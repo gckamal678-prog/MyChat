@@ -50,8 +50,27 @@ create table if not exists public.messages (
   id uuid primary key default gen_random_uuid(),
   room_id uuid not null references public.rooms(id) on delete cascade,
   user_id uuid not null references auth.users(id) on delete cascade,
-  content text not null,
+  content text,
+  encrypted_content text,
+  nonce text,
+  sender_public_key jsonb,
+  recipient_public_key jsonb,
   created_at timestamptz not null default now()
+);
+
+create table if not exists public.user_keys (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  public_key jsonb not null,
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.device_sessions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  device_name text not null,
+  last_seen_at timestamptz not null default now(),
+  revoked_at timestamptz,
+  unique (user_id, device_name)
 );
 
 create table if not exists public.room_members (
@@ -81,6 +100,8 @@ alter table public.profiles enable row level security;
 alter table public.friend_requests enable row level security;
 alter table public.friendships enable row level security;
 alter table public.follows enable row level security;
+alter table public.user_keys enable row level security;
+alter table public.device_sessions enable row level security;
 
 drop policy if exists "Authenticated users can view rooms" on public.rooms;
 drop policy if exists "Authenticated users can view profiles" on public.profiles;
@@ -96,6 +117,8 @@ drop policy if exists "Users can send their own messages" on public.messages;
 drop policy if exists "Users can view their room memberships" on public.room_members;
 drop policy if exists "Users can create room memberships" on public.room_members;
 drop policy if exists "Users can manage their push subscriptions" on public.push_subscriptions;
+drop policy if exists "Users can view public keys" on public.user_keys;
+drop policy if exists "Users can manage their public key" on public.user_keys;
 drop policy if exists "Authenticated users can delete rooms" on public.rooms;
 drop policy if exists "Authenticated users can create rooms" on public.rooms;
 create policy "Authenticated users can view rooms"
@@ -121,6 +144,9 @@ create policy "Users can send their own messages"
 create policy "Users can view their room memberships" on public.room_members for select to authenticated using (auth.uid() = user_id);
 create policy "Users can create room memberships" on public.room_members for insert to authenticated with check (auth.uid() = user_id);
 create policy "Users can manage their push subscriptions" on public.push_subscriptions for all to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "Users can view public keys" on public.user_keys for select to authenticated using (true);
+create policy "Users can manage their public key" on public.user_keys for all to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "Users can manage their device sessions" on public.device_sessions for all to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 create or replace function public.create_private_room(friend_user_id uuid)
 returns public.rooms
@@ -160,6 +186,7 @@ create table if not exists public.posts (
   community text not null default 'MyChat Developers',
   content text not null,
   media_url text,
+  media_public_id text,
   media_type text check (media_type in ('image', 'video', 'gif')),
   created_at timestamptz not null default now()
 );
@@ -175,6 +202,8 @@ create table if not exists public.post_comments (
 
 alter table public.posts add column if not exists media_url text;
 alter table public.posts add column if not exists media_type text;
+alter table public.posts add column if not exists media_public_id text;
+alter table public.reels add column if not exists video_public_id text;
 alter table public.post_comments add column if not exists parent_id uuid references public.post_comments(id) on delete cascade;
 
 create table if not exists public.post_likes (
@@ -189,6 +218,7 @@ create table if not exists public.reels (
   user_id uuid not null references auth.users(id) on delete cascade,
   caption text not null,
   video_url text not null,
+  video_public_id text,
   created_at timestamptz not null default now()
 );
 
