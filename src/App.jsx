@@ -21,6 +21,7 @@ export default function App() {
   if (window.location.pathname === '/privacy-policy') return <PrivacyPolicy />;
   const [showWelcome, setShowWelcome] = useState(true);
   const [isBiometricVerified, setIsBiometricVerified] = useState(false);
+  const [biometricSupported, setBiometricSupported] = useState(null);
   const [mfaFactor, setMfaFactor] = useState(null);
   const [isMfaVerified, setIsMfaVerified] = useState(false);
   const [activeTab, setActiveTab] = useState('chats');
@@ -36,6 +37,21 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('mychat-dark-mode', String(darkMode));
   }, [darkMode]);
+
+  useEffect(() => {
+    let active = true;
+    const checkBiometricSupport = async () => {
+      const supported = Boolean(window.PublicKeyCredential && navigator.credentials);
+      const available = supported
+        && await window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+      if (active) {
+        setBiometricSupported(available);
+        if (!available) setIsBiometricVerified(true);
+      }
+    };
+    checkBiometricSupport();
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -70,8 +86,12 @@ export default function App() {
 
   if (mfaFactor && !isMfaVerified) return <MfaScreen factor={mfaFactor} onVerified={() => setIsMfaVerified(true)} />;
 
-  if (localStorage.getItem('mychat-biometric-enabled') !== 'false' && !isBiometricVerified) {
-    return <BiometricScreen onSuccess={() => setIsBiometricVerified(true)} />;
+  if (biometricSupported === null) {
+    return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400">Preparing secure unlock...</div>;
+  }
+
+  if (localStorage.getItem('mychat-biometric-enabled') !== 'false' && biometricSupported && !isBiometricVerified) {
+    return <BiometricScreen onSuccess={() => setIsBiometricVerified(true)} onSkip={() => setIsBiometricVerified(true)} />;
   }
 
   // Render active tab content dynamically
