@@ -18,7 +18,7 @@ export default function ChatWindow({ chat, onBack }) {
     const loadMessages = async () => {
       const { data, error: messagesError } = await supabase
         .from('messages')
-        .select('id, user_id, content, created_at')
+        .select('id, user_id, content, encrypted_content, nonce, sender_public_key, recipient_public_key, created_at')
         .eq('room_id', chat.id)
         .order('created_at', { ascending: true });
       if (!active) return;
@@ -38,6 +38,10 @@ export default function ChatWindow({ chat, onBack }) {
     const content = inputText.trim();
     setInputText('');
     const { data: members } = await supabase.from('room_members').select('user_id').eq('room_id', chat.id).neq('user_id', user.id);
+    if ((members || []).length > 1) {
+      setError('Encrypted group messaging is not available yet. Use a private chat.');
+      return;
+    }
     const recipientId = members?.[0]?.user_id || user.id;
     const { data: recipient } = await supabase.from('user_keys').select('public_key').eq('user_id', recipientId).maybeSingle();
     if (!recipient?.public_key) { setError('The recipient has not opened an encrypted session yet.'); setInputText(content); return; }
@@ -48,7 +52,7 @@ export default function ChatWindow({ chat, onBack }) {
       setInputText(content);
       return;
     }
-    await Promise.all((members || []).map((member) => notifyUser(member.user_id, 'New MyChat message', content, `/?room=${chat.id}`)));
+    await Promise.all((members || []).map((member) => notifyUser(member.user_id, 'New MyChat message', 'You have a new encrypted message', `/?room=${chat.id}`)));
   };
 
   const handleAttachment = () => {

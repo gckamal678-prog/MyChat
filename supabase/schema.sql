@@ -172,6 +172,11 @@ $$;
 grant execute on function public.create_private_room(uuid) to authenticated;
 
 alter table public.messages replica identity full;
+alter table public.messages add column if not exists encrypted_content text;
+alter table public.messages add column if not exists nonce text;
+alter table public.messages add column if not exists sender_public_key jsonb;
+alter table public.messages add column if not exists recipient_public_key jsonb;
+alter table public.messages alter column content drop not null;
 
 do $$
 begin
