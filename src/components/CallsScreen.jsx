@@ -34,15 +34,25 @@ export default function CallsScreen() {
   useEffect(() => {
     let active = true;
     const loadContacts = async () => {
-      const { data: links, error: linksError } = await supabase
+      const [{ data: links, error: linksError }, { data: acceptedRequests, error: requestsError }] = await Promise.all([
+        supabase
         .from('friendships')
         .select('friend_id, user_id')
-        .or(`user_id.eq.${user.id},friend_id.eq.${user.id}`);
-      if (linksError) {
+        .or(`user_id.eq.${user.id},friend_id.eq.${user.id}`),
+        supabase
+          .from('friend_requests')
+          .select('sender_id, receiver_id')
+          .eq('status', 'accepted')
+          .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`),
+      ]);
+      if (linksError && requestsError) {
         if (active) setCameraError(linksError.message);
         return;
       }
-      const ids = (links || []).map((link) => link.user_id === user.id ? link.friend_id : link.user_id);
+      const ids = new Set([
+        ...(links || []).map((link) => link.user_id === user.id ? link.friend_id : link.user_id),
+        ...(acceptedRequests || []).map((request) => request.sender_id === user.id ? request.receiver_id : request.sender_id),
+      ]);
       if (!ids.length) {
         if (active) setContacts([]);
         return;
@@ -50,10 +60,13 @@ export default function CallsScreen() {
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select('id, display_name, avatar_url')
-        .in('id', ids);
+        .in('id', [...ids]);
       if (active) {
         if (profilesError) setCameraError(profilesError.message);
-        else setContacts(profiles || []);
+        else setContacts((profiles || []).map((profile) => ({
+          ...profile,
+          display_name: profile.display_name || 'MyChat User',
+        })));
       }
     };
     loadContacts();
@@ -150,7 +163,7 @@ export default function CallsScreen() {
   };
 
   const filteredLogs = callLogs.filter((log) => log.channel.toLowerCase().includes(search.toLowerCase()));
-  const filteredContacts = contacts.filter((contact) => contact.display_name.toLowerCase().includes(search.toLowerCase()));
+  const filteredContacts = contacts.filter((contact) => (contact.display_name || 'MyChat User').toLowerCase().includes(search.toLowerCase()));
 
   return (
     <div className="p-4 max-w-2xl mx-auto text-white space-y-5 relative min-h-[520px]">
