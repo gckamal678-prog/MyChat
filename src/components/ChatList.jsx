@@ -17,11 +17,20 @@ export default function ChatList({ onSelectChat, darkMode, setDarkMode }) {
   const { user } = useAuth();
 
   const loadFriends = async () => {
-    const { data: requests } = await supabase.from('friend_requests').select('id, sender_id, receiver_id, status').or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`);
-    const { data: links } = await supabase.from('friendships').select('friend_id, user_id').or(`user_id.eq.${user.id},friend_id.eq.${user.id}`);
-    const ids = (links || []).map((link) => link.user_id === user.id ? link.friend_id : link.user_id);
+    const [{ data: requests, error: requestsError }, { data: links, error: linksError }] = await Promise.all([
+      supabase.from('friend_requests').select('id, sender_id, receiver_id, status').or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`),
+      supabase.from('friendships').select('friend_id, user_id').or(`user_id.eq.${user.id},friend_id.eq.${user.id}`),
+    ]);
+    if (requestsError || linksError) {
+      setError((requestsError || linksError).message);
+      return;
+    }
+    const ids = [
+      ...(links || []).map((link) => link.user_id === user.id ? link.friend_id : link.user_id),
+      ...(requests || []).filter((request) => request.status === 'accepted').map((request) => request.sender_id === user.id ? request.receiver_id : request.sender_id),
+    ];
     const { data: profiles } = ids.length ? await supabase.from('profiles').select('id, display_name, avatar_url').in('id', ids) : { data: [] };
-    setFriends(profiles || []);
+    setFriends([...new Map((profiles || []).map((profile) => [profile.id, profile])).values()]);
     setIncoming((requests || []).filter((request) => request.receiver_id === user.id && request.status === 'pending'));
   };
 
@@ -42,7 +51,8 @@ export default function ChatList({ onSelectChat, darkMode, setDarkMode }) {
   const acceptRequest = async (request) => {
     const { error: updateError } = await supabase.from('friend_requests').update({ status: 'accepted' }).eq('id', request.id);
     if (updateError) { setError(updateError.message); return; }
-    await supabase.from('friendships').upsert([{ user_id: user.id, friend_id: request.sender_id }, { user_id: request.sender_id, friend_id: user.id }]);
+    const { error: friendshipError } = await supabase.from('friendships').upsert({ user_id: user.id, friend_id: request.sender_id });
+    if (friendshipError) { setError(friendshipError.message); return; }
     await loadFriends();
   };
 
